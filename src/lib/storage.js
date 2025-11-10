@@ -1,4 +1,4 @@
-import { getDownloadURL, getMetadata, listAll, ref } from 'firebase/storage';
+import { getDownloadURL, getMetadata, listAll, ref, uploadBytes } from 'firebase/storage';
 import { storage } from '../firebase';
 
 const USERS_ROOT = 'users_prod';
@@ -102,4 +102,21 @@ export async function fetchCustomerGraphicsFromStorage(folderId) {
     }
     throw error;
   }
+}
+
+export async function uploadCustomerGraphic(folderId, file, metadata) {
+  if (!folderId || !storage) {
+    throw new Error('חסר מזהה לקוח או שה-Storage אינו מאותחל.');
+  }
+  if (!file) {
+    throw new Error('בחר קובץ להעלאה.');
+  }
+  const safeId = folderId.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+  const timestamp = Date.now();
+  const sanitizedName = file.name?.replace(/\s+/g, '_') || `graphic-${timestamp}`;
+  const path = `${USERS_ROOT}/${safeId}/logos/${timestamp}-${sanitizedName}`;
+  const fileRef = ref(storage, path);
+  await uploadBytes(fileRef, file, metadata);
+  const fileUrl = await getDownloadURL(fileRef);
+  return { fileUrl, path };
 }

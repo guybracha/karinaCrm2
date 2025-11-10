@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { generateId } from '../lib/id';
+import { uploadCustomerGraphic } from '../lib/storage';
 
 const PAGE_SIZE = 9;
 
-export default function GraphicsList({ graphics = [], onChange, disabled }) {
+export default function GraphicsList({ graphics = [], onChange, disabled, folderId }) {
   const [label, setLabel] = useState('');
-  const [fileUrl, setFileUrl] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [pending, setPending] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [graphicToDelete, setGraphicToDelete] = useState(null);
+  const [statusMessage, setStatusMessage] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!graphics.length) {
@@ -25,20 +28,37 @@ export default function GraphicsList({ graphics = [], onChange, disabled }) {
 
   async function addGraphic(event) {
     event.preventDefault();
-    if (!fileUrl.trim()) {
+    if (!selectedFile) {
+      setStatusMessage('בחר קובץ לפני ההוספה.');
       return;
     }
+    if (!folderId) {
+      setStatusMessage('אין מזהה לקוח עבור שמירת הקובץ.');
+      return;
+    }
+    setStatusMessage(null);
+
     const newGraphic = {
       id: generateId(),
       label: label.trim() || 'קובץ ללא תיאור',
-      fileUrl: fileUrl.trim(),
       uploadedAt: new Date().toISOString(),
     };
     setPending(true);
     try {
+      const uploadResult = await uploadCustomerGraphic(folderId, selectedFile, {
+        contentType: selectedFile.type,
+        customMetadata: { label: newGraphic.label, id: newGraphic.id },
+      });
+      newGraphic.fileUrl = uploadResult.fileUrl;
+      newGraphic.path = uploadResult.path;
       await onChange?.([...graphics, newGraphic]);
       setLabel('');
-      setFileUrl('');
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      setStatusMessage(error.message || 'העלאת הקובץ נכשלה.');
     } finally {
       setPending(false);
     }
@@ -71,16 +91,21 @@ export default function GraphicsList({ graphics = [], onChange, disabled }) {
           onChange={(event) => setLabel(event.target.value)}
           disabled={isDisabled}
         />
-        <input
-          placeholder="קישור לתמונה / קובץ"
-          value={fileUrl}
-          onChange={(event) => setFileUrl(event.target.value)}
-          disabled={isDisabled}
-        />
+        <label className="file-upload-wrapper btn btn-outline-secondary">
+          בחירת קובץ
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*,application/pdf"
+            onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+            disabled={isDisabled}
+          />
+        </label>
         <button type="submit" disabled={isDisabled}>
-          {pending ? 'שומר...' : 'הוסף'}
+          {pending ? 'מעלה...' : 'הוסף'}
         </button>
       </form>
+      {statusMessage && <p className="status-message error">{statusMessage}</p>}
 
       <div className="graphics-grid">
         {visibleGraphics.map((graphic) => (

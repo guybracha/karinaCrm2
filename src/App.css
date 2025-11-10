@@ -375,6 +375,22 @@ button.ghost:hover {
   flex: 1 1 220px;
 }
 
+.file-upload-wrapper {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  flex: 1 1 220px;
+  text-align: center;
+}
+
+.file-upload-wrapper input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+}
+
 .form textarea {
   resize: vertical;
   min-height: 80px;

@@ -146,6 +146,7 @@ export default function CustomerDetails({ customerId }) {
           graphics={customer.graphics || []}
           onChange={handleGraphicsChange}
           disabled={updatingGraphics}
+          folderId={customer.firebaseUid || customer.id}
         />
       </section>
 
