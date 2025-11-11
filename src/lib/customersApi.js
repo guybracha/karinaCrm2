@@ -145,7 +145,10 @@ async function getOrderForUser(userId) {
   return mapOrderDoc(snapshot.docs[0]);
 }
 
-async function fetchOrdersByUser(userId) {
+async function runOrdersQueryForUser(userId) {
+  if (!userId) {
+    return [];
+  }
   const baseRef = collection(db, ORDERS_COLLECTION);
   try {
     const ordersQuery = query(
@@ -165,6 +168,22 @@ async function fetchOrdersByUser(userId) {
       .map((docSnap) => mapOrderDoc(docSnap))
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
   }
+}
+
+async function fetchOrdersByUser(userId, additionalUserIds = []) {
+  const list = Array.isArray(additionalUserIds) ? additionalUserIds : [additionalUserIds];
+  const idsToQuery = [userId, ...list].filter(Boolean);
+  const uniqueIds = Array.from(new Set(idsToQuery));
+  const map = new Map();
+  for (const value of uniqueIds) {
+    const orders = await runOrdersQueryForUser(value);
+    orders.forEach((order) => {
+      if (!map.has(order.id)) {
+        map.set(order.id, order);
+      }
+    });
+  }
+  return Array.from(map.values()).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 }
 
 async function ensureOrderRef(userId, orderId) {
@@ -247,7 +266,10 @@ export async function fetchCustomerById(id) {
   if (!snapshot.exists()) {
     return null;
   }
-  const orders = await fetchOrdersByUser(id);
+  const data = snapshot.data() || {};
+  const firebaseUid = data.firebaseUid || id;
+  const alternateIds = firebaseUid && firebaseUid !== id ? [firebaseUid] : [];
+  const orders = await fetchOrdersByUser(id, alternateIds);
   const orderData = orders[0] || (await getOrderForUser(id));
   const mapped = mapToCustomer(snapshot, orderData);
   return { ...mapped, orders };

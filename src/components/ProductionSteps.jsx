@@ -24,16 +24,14 @@ export default function ProductionSteps({ steps = [], onChange, disabled }) {
         <li key={step.id} className={`step step-${step.status}`}>
           <div>
             <strong>{step.title}</strong>
-            <small>
-              עודכן ב־{new Date(step.updatedAt).toLocaleDateString()}
-            </small>
+            <small>עודכן ב-{new Date(step.updatedAt).toLocaleDateString()}</small>
           </div>
           <button onClick={() => toggleStatus(step.id)} disabled={disabled}>
             {step.status === 'todo'
               ? 'להתחיל'
               : step.status === 'in-progress'
-              ? 'סימון כבוצע'
-              : 'להחזיר לטו-דו'}
+              ? 'להחזיר לטו-דו'
+              : 'להתחיל שוב'}
           </button>
         </li>
       ))}
