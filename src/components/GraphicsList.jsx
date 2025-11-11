@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { generateId } from '../lib/id';
-import { uploadCustomerGraphic } from '../lib/storage';
+import { deleteCustomerGraphic, uploadCustomerGraphic } from '../lib/storage';
 
 const PAGE_SIZE = 9;
 
@@ -29,11 +29,11 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
   async function addGraphic(event) {
     event.preventDefault();
     if (!selectedFile) {
-      setStatusMessage('בחר קובץ לפני ההוספה.');
+      setStatusMessage('לא נבחר קובץ להעלאה.');
       return;
     }
     if (!folderId) {
-      setStatusMessage('אין מזהה לקוח עבור שמירת הקובץ.');
+      setStatusMessage('לא נמצא מזהה לקוח מתאים.');
       return;
     }
     setStatusMessage(null);
@@ -58,17 +58,27 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
         fileInputRef.current.value = '';
       }
     } catch (error) {
-      setStatusMessage(error.message || 'העלאת הקובץ נכשלה.');
+      setStatusMessage(error.message || 'אירעה שגיאה בהעלאת הקובץ.');
     } finally {
       setPending(false);
     }
   }
 
-  async function removeGraphic(id) {
+  async function removeGraphic(target) {
+    if (!target) {
+      return;
+    }
     setPending(true);
+    setStatusMessage(null);
     try {
-      await onChange?.(graphics.filter((item) => item.id !== id));
+      if (target.path) {
+        await deleteCustomerGraphic(target.path);
+      }
+      const nextGraphics = graphics.filter((item) => item.id !== target.id);
+      await onChange?.(nextGraphics);
       setGraphicToDelete(null);
+    } catch (error) {
+      setStatusMessage(error.message || 'אירעה שגיאה בעת מחיקת הקובץ.');
     } finally {
       setPending(false);
     }
@@ -86,13 +96,13 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
     <div className="graphics-section">
       <form className="form-inline" onSubmit={addGraphic}>
         <input
-          placeholder="תיאור קובץ (לוגו, גב, חזית...)"
+          placeholder="תיאור קובץ (לוגו, גרפיקה, PDF...)"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
           disabled={isDisabled}
         />
         <label className="file-upload-wrapper btn btn-outline-secondary">
-          בחירת קובץ
+          בחרו קובץ
           <input
             type="file"
             ref={fileInputRef}
@@ -102,7 +112,7 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
           />
         </label>
         <button type="submit" disabled={isDisabled}>
-          {pending ? 'מעלה...' : 'הוסף'}
+          {pending ? 'מעלה...' : 'העלה'}
         </button>
       </form>
       {statusMessage && <p className="status-message error">{statusMessage}</p>}
@@ -114,12 +124,12 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
               {graphic.fileUrl ? (
                 <img src={graphic.fileUrl} alt={graphic.label} />
               ) : (
-                <span>אין תצוגה זמינה</span>
+                <span>אין תצוגה מקדימה</span>
               )}
             </div>
             <div className="graphic-info">
               <strong>{graphic.label}</strong>
-              <small>נוסף ב־{new Date(graphic.uploadedAt).toLocaleDateString()}</small>
+              <small>נוסף ב-{new Date(graphic.uploadedAt).toLocaleDateString()}</small>
             </div>
             <div className="graphic-actions">
               {graphic.fileUrl && (
@@ -133,11 +143,7 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
                   הורדה
                 </a>
               )}
-              <button
-                className="ghost"
-                onClick={() => setGraphicToDelete(graphic)}
-                disabled={isDisabled}
-              >
+              <button className="ghost" onClick={() => setGraphicToDelete(graphic)} disabled={isDisabled}>
                 מחק
               </button>
             </div>
@@ -145,7 +151,7 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
         ))}
 
         {graphics.length === 0 && (
-          <p className="empty-state">אין עדיין קבצי גרפיקה ללקוח הזה.</p>
+          <p className="empty-state">אין קבצים שמורים עבור לקוח זה.</p>
         )}
       </div>
 
@@ -156,25 +162,21 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
           onClick={handleLoadMore}
           disabled={pending}
         >
-          הצג עוד
+          טען עוד
         </button>
       )}
 
       {graphicToDelete && (
-        <div className="modal-backdrop" onClick={() => setGraphicToDelete(null)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
+        <div className="crm-modal-backdrop" onClick={() => setGraphicToDelete(null)}>
+          <div className="crm-modal crm-modal-rtl" onClick={(event) => event.stopPropagation()}>
             <h3>מחיקת קובץ</h3>
-            <p>האם אתה בטוח שברצונך למחוק את "{graphicToDelete.label}"?</p>
+            <p>אתם בטוחים שברצונכם למחוק את "{graphicToDelete.label}"?</p>
             <div className="form-actions">
               <button type="button" className="ghost" onClick={() => setGraphicToDelete(null)}>
                 ביטול
               </button>
-              <button
-                type="button"
-                onClick={() => removeGraphic(graphicToDelete.id)}
-                disabled={pending}
-              >
-                מחיקה
+              <button type="button" onClick={() => removeGraphic(graphicToDelete)} disabled={pending}>
+                מחק
               </button>
             </div>
           </div>

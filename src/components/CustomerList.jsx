@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createCustomer, fetchCustomers } from '../lib/customersApi';
-import CustomerForm from './CustomerForm';
+import NewCustomerModal from './NewCustomerModal';
 
 const isTestEnv = process.env.NODE_ENV === 'test';
 
 export default function CustomerList({ onSelect, selectedId }) {
   const [customers, setCustomers] = useState([]);
-  const [showForm, setShowForm] = useState(false);
+  const [isModalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,7 +27,7 @@ export default function CustomerList({ onSelect, selectedId }) {
         onSelect?.(list[0].id);
       }
     } catch (err) {
-      setError(err.message || 'אירעה שגיאה בטעינת הלקוחות.');
+      setError(err.message || 'אירעה שגיאה בעת טעינת רשימת הלקוחות.');
     } finally {
       setLoading(false);
     }
@@ -47,10 +47,10 @@ export default function CustomerList({ onSelect, selectedId }) {
     try {
       const customer = await createCustomer(formData);
       await load();
-      setShowForm(false);
+      setModalOpen(false);
       onSelect?.(customer?.id);
     } catch (err) {
-      setError(err.message || 'אירעה שגיאה בעת יצירת הלקוח.');
+      setError(err.message || 'אירעה שגיאה בעת שמירת הלקוח החדש.');
     } finally {
       setSubmitting(false);
     }
@@ -62,9 +62,7 @@ export default function CustomerList({ onSelect, selectedId }) {
       return customers;
     }
     return customers.filter((customer) =>
-      `${customer.name} ${customer.company} ${customer.phone}`
-        .toLowerCase()
-        .includes(text),
+      `${customer.name} ${customer.company} ${customer.phone}`.toLowerCase().includes(text),
     );
   }, [customers, search]);
 
@@ -72,7 +70,9 @@ export default function CustomerList({ onSelect, selectedId }) {
     <div className="customer-panel">
       <div className="panel-header">
         <h2>לקוחות</h2>
-        <button onClick={() => setShowForm(true)}>+ לקוח חדש</button>
+        <button type="button" onClick={() => setModalOpen(true)}>
+          + לקוח חדש
+        </button>
       </div>
 
       <input
@@ -80,13 +80,18 @@ export default function CustomerList({ onSelect, selectedId }) {
         placeholder="חיפוש לפי שם / חברה / טלפון"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
+        dir="rtl"
       />
 
-      {error && <p className="status-message error">{error}</p>}
+      {error && (
+        <p className="status-message error" dir="rtl">
+          {error}
+        </p>
+      )}
       {loading ? (
         <p className="status-message">טוען לקוחות...</p>
       ) : (
-        <ul className="customer-list">
+        <ul className="customer-list" dir="rtl">
           {filtered.map((customer) => (
             <li
               key={customer.id}
@@ -95,29 +100,21 @@ export default function CustomerList({ onSelect, selectedId }) {
             >
               <strong>{customer.name}</strong>
               {customer.company && <span> · {customer.company}</span>}
-              {customer.phone && (
-                <div className="sub-text">{customer.phone}</div>
-              )}
+              {customer.phone && <div className="sub-text">{customer.phone}</div>}
             </li>
           ))}
           {filtered.length === 0 && !error && (
-            <li className="empty-state">אין לקוחות תואמים.</li>
+            <li className="empty-state">לא נמצאו לקוחות מתאימים.</li>
           )}
         </ul>
       )}
 
-      {showForm && (
-        <div className="modal-backdrop" onClick={() => setShowForm(false)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
-            <h3>לקוח חדש</h3>
-            <CustomerForm
-              submitting={submitting}
-              onCancel={() => setShowForm(false)}
-              onSubmit={handleCreate}
-            />
-          </div>
-        </div>
-      )}
+      <NewCustomerModal
+        open={isModalOpen}
+        submitting={submitting}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleCreate}
+      />
     </div>
   );
 }

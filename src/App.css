@@ -364,11 +364,13 @@ button.ghost:hover {
 
 .form input,
 .form textarea,
+.form select,
 .form-inline input {
   width: 100%;
   padding: 0.55rem 0.75rem;
   border-radius: 0.6rem;
   border: 1px solid var(--border);
+  background: var(--white);
 }
 
 .form-inline input {
@@ -396,6 +398,27 @@ button.ghost:hover {
   min-height: 80px;
 }
 
+.customer-form {
+  gap: 1.25rem;
+}
+
+.customer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--subtext);
+}
+
+.field-hint.error {
+  color: #e3526c;
+}
+
 .order-selector {
   margin-bottom: 1rem;
   display: flex;
@@ -417,7 +440,7 @@ button.ghost:hover {
   gap: 0.75rem;
 }
 
-.modal-backdrop {
+.crm-modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.5);
@@ -428,12 +451,63 @@ button.ghost:hover {
   z-index: 10;
 }
 
-.modal {
+.crm-modal {
   background: var(--white);
   padding: 1.5rem;
   border-radius: 1rem;
-  width: min(420px, 100%);
+  width: min(520px, 100%);
   box-shadow: 0 25px 80px rgba(15, 23, 42, 0.2);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.crm-modal-rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+.crm-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.crm-modal-header h3 {
+  margin: 0.1rem 0;
+}
+
+.crm-modal-eyebrow {
+  font-size: 0.85rem;
+  color: var(--accent-dark);
+  text-transform: uppercase;
+  margin: 0;
+  letter-spacing: 0.08em;
+}
+
+.crm-modal-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--subtext);
+  font-size: 0.9rem;
+}
+
+.crm-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--subtext);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.crm-modal-close:hover:not(:disabled) {
+  color: var(--accent-dark);
+}
+
+.crm-modal-close:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .empty-state {
@@ -449,5 +523,22 @@ button.ghost:hover {
 
   .customer-list {
     max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .crm-modal-backdrop {
+    padding: 0.5rem;
+  }
+
+  .crm-modal {
+    width: 100%;
+    border-radius: 0.75rem;
+    max-height: 100vh;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

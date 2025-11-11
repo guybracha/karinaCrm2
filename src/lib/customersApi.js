@@ -112,6 +112,7 @@ function mapToCustomer(docSnap, orderData) {
     company: data.company || '',
     phone: data.phone || data.phoneNumber || '',
     email: data.email || '',
+    city: data.city || '',
     notes: data.notes || '',
     graphics: normalizeGraphics(orderData?.graphics),
     productionSteps: normalizeSteps(orderData?.productionSteps),
@@ -205,6 +206,7 @@ function createMemoryCustomer(payload) {
     company: payload.company,
     phone: payload.phone,
     email: payload.email,
+    city: payload.city,
     notes: payload.notes,
     graphics: order.graphics,
     productionSteps: order.productionSteps,
@@ -257,6 +259,7 @@ export async function createCustomer(data) {
     company: data.company?.trim() || '',
     phone: data.phone?.trim() || '',
     email: data.email?.trim() || '',
+    city: data.city?.trim() || '',
     notes: data.notes?.trim() || '',
   };
 
@@ -338,3 +341,4 @@ export async function saveProductionSteps(customerId, steps, orderId = null) {
   });
   return fetchCustomerById(customerId);
 }
+

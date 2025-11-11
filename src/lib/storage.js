@@ -1,4 +1,4 @@
-import { getDownloadURL, getMetadata, listAll, ref, uploadBytes } from 'firebase/storage';
+﻿import { deleteObject, getDownloadURL, getMetadata, listAll, ref, uploadBytes } from 'firebase/storage';
 import { storage } from '../firebase';
 
 const USERS_ROOT = 'users_prod';
@@ -106,10 +106,10 @@ export async function fetchCustomerGraphicsFromStorage(folderId) {
 
 export async function uploadCustomerGraphic(folderId, file, metadata) {
   if (!folderId || !storage) {
-    throw new Error('חסר מזהה לקוח או שה-Storage אינו מאותחל.');
+    throw new Error('לא ניתן לשמור קובץ ללא חיבור ל-Storage.');
   }
   if (!file) {
-    throw new Error('בחר קובץ להעלאה.');
+    throw new Error('לא נבחר קובץ להעלאה.');
   }
   const safeId = folderId.trim().replace(/^\/+/, '').replace(/\/+$/, '');
   const timestamp = Date.now();
@@ -119,4 +119,22 @@ export async function uploadCustomerGraphic(folderId, file, metadata) {
   await uploadBytes(fileRef, file, metadata);
   const fileUrl = await getDownloadURL(fileRef);
   return { fileUrl, path };
+}
+
+export async function deleteCustomerGraphic(path) {
+  if (!path || !storage) {
+    throw new Error('לא ניתן למחוק קובץ ללא נתיב תקין.');
+  }
+  try {
+    const fileRef = ref(storage, path);
+    await deleteObject(fileRef);
+  } catch (error) {
+    if (error.code === 'storage/unauthorized' || error.code === 'storage/retry-limit-exceeded') {
+      throw new Error('אין הרשאות למחיקה מ-Firebase Storage. בדקו את חוקי האבטחה.');
+    }
+    if (error.code === 'storage/object-not-found') {
+      return;
+    }
+    throw error;
+  }
 }

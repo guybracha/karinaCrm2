@@ -18,9 +18,7 @@ export default function CustomerDetails({ customerId }) {
 
   function getOrderLabel(order, index) {
     const suffix = order.orderNumber || order.reference || order.id?.slice(-6) || index + 1;
-    const dateLabel = order.createdAt
-      ? ` · ${new Date(order.createdAt).toLocaleDateString()}`
-      : '';
+    const dateLabel = order.createdAt ? ` · ${new Date(order.createdAt).toLocaleDateString()}` : '';
     return `הזמנה ${suffix}${dateLabel}`;
   }
 
@@ -34,12 +32,7 @@ export default function CustomerDetails({ customerId }) {
         let storageGraphics = null;
         if (data) {
           const folderId = data.firebaseUid || data.id;
-          storageGraphics = await fetchCustomerGraphicsFromStorage(folderId).catch(
-            (err) => {
-              console.warn('Unable to load graphics from Storage', err);
-              return null;
-            },
-          );
+          storageGraphics = await fetchCustomerGraphicsFromStorage(folderId).catch(() => null);
         }
         if (isMounted) {
           const graphicsOverride =
@@ -52,7 +45,7 @@ export default function CustomerDetails({ customerId }) {
         }
       } catch (err) {
         if (isMounted) {
-          setError(err.message || 'לא הצלחנו לטעון את הלקוח.');
+          setError(err.message || 'לא ניתן לטעון את פרטי הלקוח.');
           setCustomer(null);
         }
       } finally {
@@ -73,6 +66,7 @@ export default function CustomerDetails({ customerId }) {
     if (!customer?.id) return;
     setUpdatingGraphics(true);
     setError(null);
+    setCustomer((prev) => (prev ? { ...prev, graphics: nextGraphics } : prev));
     try {
       const updated = await saveCustomerGraphics(customer.id, nextGraphics, selectedOrderId || null);
       setCustomer(updated);
@@ -83,7 +77,11 @@ export default function CustomerDetails({ customerId }) {
         setSelectedOrderId(fallbackOrderId);
       }
     } catch (err) {
-      setError(err.message || 'שמירת קבצי הגרפיקה נכשלה.');
+      const message =
+        err?.code === 'permission-denied'
+          ? 'אין הרשאה לעדכן את נתוני הלקוח ב-Firestore. בדקו את חוקי האבטחה.'
+          : err.message || 'שגיאה בשמירת רשימת הקבצים.';
+      setError(message);
     } finally {
       setUpdatingGraphics(false);
     }
@@ -92,7 +90,7 @@ export default function CustomerDetails({ customerId }) {
   async function handleStepsChange(nextSteps) {
     if (!customer?.id) return;
     if ((customer.orders?.length || 0) > 0 && !selectedOrderId) {
-      setError('בחר הזמנה כדי לעדכן את תהליך הייצור.');
+      setError('יש לבחור הזמנה לפני עדכון שלבי הייצור.');
       return;
     }
     setUpdatingSteps(true);
@@ -108,7 +106,7 @@ export default function CustomerDetails({ customerId }) {
         setSelectedOrderId(fallbackOrderId);
       }
     } catch (err) {
-      setError(err.message || 'שמירת שלבי הייצור נכשלה.');
+      setError(err.message || 'שגיאה בשמירת שלבי הייצור.');
     } finally {
       setUpdatingSteps(false);
     }
@@ -119,7 +117,7 @@ export default function CustomerDetails({ customerId }) {
   }
 
   if (!customer) {
-    return <p className="status-message">לא נמצא לקוח.</p>;
+    return <p className="status-message">לא נמצאו פרטי לקוח.</p>;
   }
 
   const availableOrders = customer.orders || [];
@@ -141,7 +139,7 @@ export default function CustomerDetails({ customerId }) {
       </div>
 
       <section>
-        <h3>קבצי גרפיקה</h3>
+        <h3>קבצים גרפיים</h3>
         <GraphicsList
           graphics={customer.graphics || []}
           onChange={handleGraphicsChange}
@@ -151,11 +149,11 @@ export default function CustomerDetails({ customerId }) {
       </section>
 
       <section>
-        <h3>תהליך ייצור</h3>
+        <h3>תהליך הייצור</h3>
         {availableOrders.length > 0 ? (
           <div className="order-selector">
             <label>
-              בחר הזמנה
+              בחרו הזמנה
               <select
                 value={selectedOrderId || availableOrders[0]?.id || ''}
                 onChange={(event) => setSelectedOrderId(event.target.value)}
