@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createCustomer, fetchCustomers } from '../lib/customersApi';
+import { createCustomer, fetchCustomers, subscribeToCustomers } from '../lib/customersApi';
 import NewCustomerModal from './NewCustomerModal';
 
 const isTestEnv = process.env.NODE_ENV === 'test';
@@ -40,6 +40,25 @@ export default function CustomerList({ onSelect, selectedId }) {
     }
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (isTestEnv) {
+      return undefined;
+    }
+    const unsubscribe = subscribeToCustomers(
+      (list) => {
+        setCustomers(list);
+        if (!selectedRef.current && list.length > 0) {
+          onSelect?.(list[0].id);
+        }
+        setLoading(false);
+      },
+      (err) => {
+        setError(err.message || 'Failed to subscribe to customer updates.');
+      },
+    );
+    return unsubscribe;
+  }, [onSelect]);
 
   async function handleCreate(formData) {
     setSubmitting(true);

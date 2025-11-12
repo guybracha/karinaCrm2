@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -245,6 +246,33 @@ export async function fetchCustomers() {
     fetchOrdersMap(),
   ]);
   return usersSnapshot.docs.map((docSnap) => mapToCustomer(docSnap, ordersMap.get(docSnap.id)));
+}
+
+export function subscribeToCustomers(onData, onError) {
+  if (isTestEnv) {
+    onData?.(memoryStore.customers);
+    return () => {};
+  }
+  const usersQuery = query(collection(db, USERS_COLLECTION), orderBy('firebaseUid'));
+  const unsubscribe = onSnapshot(
+    usersQuery,
+    async (snapshot) => {
+      try {
+        const ordersMap = await fetchOrdersMap();
+        const customers = snapshot.docs.map((docSnap) =>
+          mapToCustomer(docSnap, ordersMap.get(docSnap.id)),
+        );
+        onData?.(customers);
+      } catch (error) {
+        onError?.(error);
+      }
+    },
+    (error) => {
+      onError?.(error);
+    },
+  );
+
+  return unsubscribe;
 }
 
 export async function fetchCustomerById(id) {
