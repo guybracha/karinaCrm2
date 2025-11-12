@@ -120,6 +120,17 @@ function mapToCustomer(docSnap, orderData) {
   };
 }
 
+function sortCustomersList(list = []) {
+  return [...list].sort((a, b) => {
+    const nameA = (a?.name || '').trim().toLowerCase();
+    const nameB = (b?.name || '').trim().toLowerCase();
+    if (nameA === nameB) {
+      return (a?.id || '').localeCompare(b?.id || '');
+    }
+    return nameA.localeCompare(nameB);
+  });
+}
+
 async function fetchOrdersMap() {
   const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
   const map = new Map();
@@ -240,12 +251,15 @@ export async function fetchCustomers() {
   if (isTestEnv) {
     return memoryStore.customers;
   }
-  const usersQuery = query(collection(db, USERS_COLLECTION), orderBy('firebaseUid'));
+  const usersRef = collection(db, USERS_COLLECTION);
   const [usersSnapshot, ordersMap] = await Promise.all([
-    getDocs(usersQuery),
+    getDocs(usersRef),
     fetchOrdersMap(),
   ]);
-  return usersSnapshot.docs.map((docSnap) => mapToCustomer(docSnap, ordersMap.get(docSnap.id)));
+  const customers = usersSnapshot.docs.map((docSnap) =>
+    mapToCustomer(docSnap, ordersMap.get(docSnap.id)),
+  );
+  return sortCustomersList(customers);
 }
 
 export function subscribeToCustomers(onData, onError) {
@@ -253,14 +267,14 @@ export function subscribeToCustomers(onData, onError) {
     onData?.(memoryStore.customers);
     return () => {};
   }
-  const usersQuery = query(collection(db, USERS_COLLECTION), orderBy('firebaseUid'));
+  const usersRef = collection(db, USERS_COLLECTION);
   const unsubscribe = onSnapshot(
-    usersQuery,
+    usersRef,
     async (snapshot) => {
       try {
         const ordersMap = await fetchOrdersMap();
-        const customers = snapshot.docs.map((docSnap) =>
-          mapToCustomer(docSnap, ordersMap.get(docSnap.id)),
+        const customers = sortCustomersList(
+          snapshot.docs.map((docSnap) => mapToCustomer(docSnap, ordersMap.get(docSnap.id))),
         );
         onData?.(customers);
       } catch (error) {
