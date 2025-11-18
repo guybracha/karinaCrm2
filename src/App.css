@@ -357,6 +357,11 @@ button.ghost:hover {
   color: #d62f55;
 }
 
+.status-message.success {
+  color: #28a745;
+  font-weight: 500;
+}
+
 .steps-list {
   list-style: none;
   padding: 0;

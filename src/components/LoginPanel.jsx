@@ -1,99 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { signIn, signInWithGoogle } from '../lib/auth';
+import { signIn, signUp } from '../lib/auth';
 import { assertStaffAccess } from '../lib/staff';
-import { RECAPTCHA_SITE_KEY } from '../config';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const isTestEnv = process.env.NODE_ENV === 'test';
-const RECAPTCHA_SCRIPT_ID = 'google-recaptcha-enterprise';
-
-function loadRecaptchaScript() {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error('window is not available'));
-  }
-  if (window.grecaptcha) {
-    return Promise.resolve(window.grecaptcha);
-  }
-  const existingScript = document.getElementById(RECAPTCHA_SCRIPT_ID);
-  if (existingScript) {
-    return new Promise((resolve, reject) => {
-      existingScript.addEventListener('load', () => resolve(window.grecaptcha));
-      existingScript.addEventListener('error', reject);
-    });
-  }
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.id = RECAPTCHA_SCRIPT_ID;
-    script.src = `https://www.google.com/recaptcha/enterprise.js?render=${RECAPTCHA_SITE_KEY}`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve(window.grecaptcha);
-    script.onerror = reject;
-    document.body.appendChild(script);
-  });
-}
 
 export default function LoginPanel() {
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [mode, setMode] = useState('login'); // 'login' or 'signup'
+  const [form, setForm] = useState({ email: '', password: '', displayName: '' });
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [captchaReady, setCaptchaReady] = useState(isTestEnv);
-  const [captchaError, setCaptchaError] = useState(null);
   const loadingTokenRef = useRef(false);
-
-  useEffect(() => {
-    if (isTestEnv) {
-      setCaptchaReady(true);
-      return;
-    }
-
-    let mounted = true;
-
-    loadRecaptchaScript()
-      .then((grecaptcha) => {
-        if (!mounted) return;
-        grecaptcha.enterprise.ready(() => {
-          if (mounted) {
-            setCaptchaReady(true);
-            setCaptchaError(null);
-          }
-        });
-      })
-      .catch(() => {
-        if (mounted) {
-          setCaptchaError('טעינת reCAPTCHA נכשלה. נסה לרענן את העמוד.');
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   function handleChange(event) {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-  }
-
-  async function getRecaptchaToken() {
-    if (isTestEnv) {
-      return 'test-token';
-    }
-    if (!captchaReady) {
-      throw new Error('reCAPTCHA עדיין נטען. נסה שוב בעוד רגע.');
-    }
-    if (!window.grecaptcha || !window.grecaptcha.enterprise) {
-      throw new Error('reCAPTCHA לא זמין בדפדפן הנוכחי.');
-    }
-    loadingTokenRef.current = true;
-    const token = await window.grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {
-      action: 'LOGIN',
-    });
-    loadingTokenRef.current = false;
-    if (!token) {
-      throw new Error('reCAPTCHA לא הצליח להפיק אסימון.');
-    }
-    return token;
   }
 
   async function handleSubmit(event) {
@@ -102,50 +25,83 @@ export default function LoginPanel() {
       setError('נא למלא אימייל וסיסמה.');
       return;
     }
+    
+    if (mode === 'signup' && !form.displayName) {
+      setError('נא למלא שם מלא.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setSuccess(null);
+    
     try {
-      await getRecaptchaToken();
-      const credential = await signIn(form);
-      await assertStaffAccess(credential.user);
+      if (mode === 'login') {
+        const credential = await signIn(form);
+        await assertStaffAccess(credential.user);
+      } else {
+        // הרשמה
+        const credential = await signUp(form);
+        
+        // שמירת פרטי המשתמש ב-Firestore עם active: false
+        await setDoc(doc(db, 'staff', credential.user.uid), {
+          email: form.email,
+          displayName: form.displayName,
+          role: 'pending',
+          active: false,
+          updatedAt: new Date()
+        });
+        
+        setSuccess('ההרשמה הושלמה! המתן לאישור מנהל המערכת.');
+        setForm({ email: '', password: '', displayName: '' });
+        
+        // יציאה מהמערכת אחרי הרשמה
+        await credential.user.getIdToken();
+      }
     } catch (err) {
       if (loadingTokenRef.current) {
         loadingTokenRef.current = false;
       }
-      setError(err.message || 'ההתחברות נכשלה. ודא פרטים נכונים והרשאות.');
+      
+      let errorMessage = 'הפעולה נכשלה. נסה שוב.';
+      if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'האימייל כבר קיים במערכת. נסה להתחבר.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'הסיסמה חלשה מדי. השתמש בסיסמה בת 6 תווים לפחות.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'כתובת האימייל לא תקינה.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleGoogleSignIn() {
-    setError(null);
-    setCaptchaError(null);
-    setGoogleLoading(true);
-    try {
-      await getRecaptchaToken();
-      const credential = await signInWithGoogle();
-      await assertStaffAccess(credential.user);
-    } catch (err) {
-      if (loadingTokenRef.current) {
-        loadingTokenRef.current = false;
-      }
-      setError(
-        err.message || 'התחברות Google נכשלה. ודא שיש למשתמש הרשאות CRM או staff.',
-      );
-    } finally {
-      setGoogleLoading(false);
-    }
-  }
-
   return (
     <div className="login-panel">
-      <h2>התחברות לצוות / CRM</h2>
+      <h2>{mode === 'login' ? 'התחברות לצוות / CRM' : 'הרשמה למערכת'}</h2>
       <p>
-        כדי לראות נתוני לקוחות יש להתחבר עם משתמש שיש לו הרשאות CRM או staff
-        ב-Firebase.
+        {mode === 'login' 
+          ? 'כדי לראות נתוני לקוחות יש להתחבר עם משתמש שיש לו הרשאות CRM או staff ב-Firebase.'
+          : 'לאחר ההרשמה, המתן לאישור מנהל המערכת כדי לקבל גישה למערכת.'}
       </p>
       <form className="form" onSubmit={handleSubmit}>
+        {mode === 'signup' && (
+          <label>
+            שם מלא
+            <input
+              name="displayName"
+              type="text"
+              value={form.displayName}
+              onChange={handleChange}
+              disabled={loading}
+              required
+            />
+          </label>
+        )}
         <label>
           אימייל עבודה
           <input
@@ -166,30 +122,48 @@ export default function LoginPanel() {
             onChange={handleChange}
             disabled={loading}
             required
+            minLength={6}
           />
         </label>
-        {captchaError && <p className="status-message error">{captchaError}</p>}
-        {!isTestEnv && (
-          <p className="status-message">
-            reCAPTCHA מגן על הטופס הזה (מופעל אוטומטית בעת שליחה).
-          </p>
-        )}
         {error && <p className="status-message error">{error}</p>}
-        <button type="submit" disabled={loading || googleLoading}>
-          {loading ? 'מתחבר...' : 'התחבר'}
+        {success && <p className="status-message success">{success}</p>}
+        <button type="submit" disabled={loading}>
+          {loading ? (mode === 'login' ? 'מתחבר...' : 'נרשם...') : (mode === 'login' ? 'התחבר' : 'הרשם')}
         </button>
       </form>
-      <div className="auth-divider">
-        <span>או</span>
-      </div>
-      <button
-        type="button"
-        className="google-button"
-        onClick={handleGoogleSignIn}
-        disabled={googleLoading || loading}
-      >
-        {googleLoading ? 'מתחבר עם Google...' : 'התחבר עם Google'}
-      </button>
+      <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+        {mode === 'login' ? (
+          <>
+            אין לך חשבון?{' '}
+            <button 
+              onClick={() => {
+                setMode('signup');
+                setError(null);
+                setSuccess(null);
+                setForm({ email: '', password: '', displayName: '' });
+              }}
+              style={{ background: 'none', border: 'none', color: '#ff4c84', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              הירשם כאן
+            </button>
+          </>
+        ) : (
+          <>
+            כבר יש לך חשבון?{' '}
+            <button 
+              onClick={() => {
+                setMode('login');
+                setError(null);
+                setSuccess(null);
+                setForm({ email: '', password: '', displayName: '' });
+              }}
+              style={{ background: 'none', border: 'none', color: '#ff4c84', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              התחבר כאן
+            </button>
+          </>
+        )}
+      </p>
     </div>
   );
 }
