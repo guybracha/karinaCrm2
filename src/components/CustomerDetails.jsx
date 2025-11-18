@@ -3,9 +3,11 @@ import {
   fetchCustomerById,
   saveCustomerGraphics,
   updateCustomerNotes,
+  updateCustomerTasks,
 } from '../lib/customersApi';
 import { fetchCustomerGraphicsFromStorage } from '../lib/storage';
 import GraphicsList from './GraphicsList';
+import TaskBoard from './TaskBoard';
 
 export default function CustomerDetails({ customerId }) {
   const [customer, setCustomer] = useState(null);
@@ -15,6 +17,7 @@ export default function CustomerDetails({ customerId }) {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [savingTasks, setSavingTasks] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -99,6 +102,21 @@ export default function CustomerDetails({ customerId }) {
     setNotesValue('');
   }
 
+  async function handleTasksChange(newTasks) {
+    if (!customer?.id) return;
+    setSavingTasks(true);
+    setError(null);
+    setCustomer((prev) => (prev ? { ...prev, tasks: newTasks } : prev));
+    try {
+      const updated = await updateCustomerTasks(customer.id, newTasks);
+      setCustomer(updated);
+    } catch (err) {
+      setError(err.message || 'שגיאה בשמירת המשימות.');
+    } finally {
+      setSavingTasks(false);
+    }
+  }
+
   if (loading) {
     return <p className="status-message">טוען פרטי לקוח...</p>;
   }
@@ -159,6 +177,15 @@ export default function CustomerDetails({ customerId }) {
           onChange={handleGraphicsChange}
           disabled={updatingGraphics}
           folderId={customer.firebaseUid || customer.id}
+        />
+      </section>
+
+      <section>
+        <h3>משימות</h3>
+        <TaskBoard
+          tasks={customer.tasks || []}
+          onChange={handleTasksChange}
+          disabled={savingTasks}
         />
       </section>
     </div>

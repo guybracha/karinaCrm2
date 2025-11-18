@@ -144,15 +144,37 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
               </div>
               <div className="graphic-actions">
                 {graphic.fileUrl && (
-                  <a
-                    className="ghost download-button"
-                    href={graphic.fileUrl}
-                    download
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {isPdf ? 'פתח PDF' : 'הורדה'}
-                  </a>
+                  <>
+                    {isPdf ? (
+                      <>
+                        <a
+                          className="ghost"
+                          href={graphic.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          פתח
+                        </a>
+                        <a
+                          className="ghost"
+                          href={graphic.fileUrl}
+                          download={graphic.label || 'file.pdf'}
+                        >
+                          הורד
+                        </a>
+                      </>
+                    ) : (
+                      <a
+                        className="ghost download-button"
+                        href={graphic.fileUrl}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        הורדה
+                      </a>
+                    )}
+                  </>
                 )}
                 <button className="ghost" onClick={() => setGraphicToDelete(graphic)} disabled={isDisabled}>
                   מחק

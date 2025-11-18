@@ -390,6 +390,27 @@ export async function updateCustomerNotes(customerId, notes) {
   return fetchCustomerById(customerId);
 }
 
+export async function updateCustomerTasks(customerId, tasks) {
+  if (isTestEnv) {
+    const index = memoryStore.customers.findIndex((customer) => customer.id === customerId);
+    if (index === -1) {
+      return null;
+    }
+    memoryStore.customers[index] = {
+      ...memoryStore.customers[index],
+      tasks: tasks || [],
+    };
+    return memoryStore.customers[index];
+  }
+
+  const userRef = doc(db, USERS_COLLECTION, customerId);
+  await updateDoc(userRef, {
+    tasks: tasks || [],
+    updatedAt: serverTimestamp(),
+  });
+  return fetchCustomerById(customerId);
+}
+
 export async function saveProductionSteps(customerId, steps, orderId = null) {
   if (isTestEnv) {
     const index = memoryStore.customers.findIndex((customer) => customer.id === customerId);

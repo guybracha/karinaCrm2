@@ -14,6 +14,8 @@
   color: var(--text);
   display: flex;
   flex-direction: column;
+  direction: rtl;
+  text-align: right;
 }
 
 .app.loading-state {
@@ -35,11 +37,13 @@
 .app-header h1 {
   margin: 0;
   font-size: 1.75rem;
+  text-align: right;
 }
 
 .app-header p {
   margin: 0.25rem 0 0;
   color: var(--subtext);
+  text-align: right;
 }
 
 .app-main {
@@ -118,6 +122,8 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  direction: ltr;
+  text-align: left;
 }
 
 .user-box strong {
@@ -195,6 +201,8 @@ button.ghost:hover {
   border-radius: 0.75rem;
   margin-bottom: 1rem;
   font-size: 0.95rem;
+  text-align: right;
+  direction: rtl;
 }
 
 .customer-list {
@@ -218,6 +226,8 @@ button.ghost:hover {
   padding: 0.85rem;
   cursor: pointer;
   transition: border 0.2s ease, box-shadow 0.2s ease;
+  text-align: right;
+  direction: rtl;
 }
 
 .customer-list li.selected {
@@ -238,6 +248,16 @@ button.ghost:hover {
   margin-top: 1.5rem;
 }
 
+.customer-header {
+  text-align: right;
+  direction: rtl;
+}
+
+.customer-header h2,
+.customer-header p {
+  text-align: right;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -255,6 +275,8 @@ button.ghost:hover {
   border-radius: 0.65rem;
   background: var(--bg);
   min-height: 60px;
+  text-align: right;
+  direction: rtl;
 }
 
 .notes-display.empty {
@@ -319,9 +341,16 @@ button.ghost:hover {
   margin-bottom: 0.15rem;
 }
 
+.graphic-info {
+  text-align: right;
+  direction: rtl;
+}
+
 .status-message {
   margin: 0 0 0.75rem;
   color: var(--subtext);
+  text-align: right;
+  direction: rtl;
 }
 
 .status-message.error {
@@ -384,6 +413,8 @@ button.ghost:hover {
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.9rem;
+  text-align: right;
+  direction: rtl;
 }
 
 .form input,
@@ -395,6 +426,8 @@ button.ghost:hover {
   border-radius: 0.6rem;
   border: 1px solid var(--border);
   background: var(--white);
+  text-align: right;
+  direction: rtl;
 }
 
 .form-inline input {
@@ -538,6 +571,188 @@ button.ghost:hover {
   color: var(--subtext);
   text-align: center;
   padding: 2rem;
+  direction: rtl;
+}
+
+/* Task Board Styles */
+.task-board {
+  width: 100%;
+  direction: rtl;
+}
+
+.task-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.task-column {
+  background: var(--bg);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border-right: 4px solid var(--accent);
+  background: var(--white);
+  border-radius: 0.5rem;
+}
+
+.task-column-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.task-count {
+  background: var(--accent);
+  color: var(--white);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.task-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.task-item {
+  position: relative;
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.task-card {
+  flex: 1;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  padding: 0.75rem;
+  cursor: grab;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.task-card:active {
+  cursor: grabbing;
+}
+
+.task-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(255, 125, 165, 0.15);
+}
+
+.task-card-overlay {
+  cursor: grabbing;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  transform: rotate(2deg);
+}
+
+.task-card-content {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  text-align: right;
+}
+
+.task-card-drag-handle {
+  color: var(--subtext);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+}
+
+.task-card-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.task-card-text strong {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.task-due-date {
+  color: var(--subtext);
+  font-size: 0.75rem;
+}
+
+.task-delete-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--subtext);
+  padding: 0.25rem 0.5rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.task-item:hover .task-delete-btn {
+  opacity: 1;
+}
+
+.task-delete-btn:hover {
+  background: #fee;
+  border-color: #fcc;
+  color: #c33;
+}
+
+.task-add-btn {
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 0.9rem;
+  border-radius: 0.5rem;
+  margin-top: auto;
+}
+
+.task-add-form {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.task-add-form input {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.task-add-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+.task-add-actions button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
 }
 
 @media (max-width: 1024px) {
@@ -547,6 +762,10 @@ button.ghost:hover {
 
   .customer-list {
     max-height: none;
+  }
+
+  .task-columns {
+    grid-template-columns: 1fr;
   }
 }
 

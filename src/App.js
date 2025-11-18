@@ -34,7 +34,7 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app" dir="rtl">
       <header className="app-header">
         <div>
           <h1>Karina CRM</h1>
