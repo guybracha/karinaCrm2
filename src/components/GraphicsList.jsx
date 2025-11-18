@@ -118,37 +118,49 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
       {statusMessage && <p className="status-message error">{statusMessage}</p>}
 
       <div className="graphics-grid">
-        {visibleGraphics.map((graphic) => (
-          <div key={graphic.id} className="graphic-card">
-            <div className="graphic-thumb">
-              {graphic.fileUrl ? (
-                <img src={graphic.fileUrl} alt={graphic.label} />
-              ) : (
-                <span>אין תצוגה מקדימה</span>
-              )}
+        {visibleGraphics.map((graphic) => {
+          const isPdf = graphic.path?.toLowerCase().endsWith('.pdf') || graphic.label?.toLowerCase().includes('pdf');
+          
+          return (
+            <div key={graphic.id} className="graphic-card">
+              <div className="graphic-thumb">
+                {graphic.fileUrl ? (
+                  isPdf ? (
+                    <iframe 
+                      src={graphic.fileUrl} 
+                      title={graphic.label}
+                      style={{ width: '100%', height: '100%', border: 'none' }}
+                    />
+                  ) : (
+                    <img src={graphic.fileUrl} alt={graphic.label} />
+                  )
+                ) : (
+                  <span>אין תצוגה מקדימה</span>
+                )}
+              </div>
+              <div className="graphic-info">
+                <strong>{graphic.label}</strong>
+                <small>נוסף ב-{new Date(graphic.uploadedAt).toLocaleDateString()}</small>
+              </div>
+              <div className="graphic-actions">
+                {graphic.fileUrl && (
+                  <a
+                    className="ghost download-button"
+                    href={graphic.fileUrl}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {isPdf ? 'פתח PDF' : 'הורדה'}
+                  </a>
+                )}
+                <button className="ghost" onClick={() => setGraphicToDelete(graphic)} disabled={isDisabled}>
+                  מחק
+                </button>
+              </div>
             </div>
-            <div className="graphic-info">
-              <strong>{graphic.label}</strong>
-              <small>נוסף ב-{new Date(graphic.uploadedAt).toLocaleDateString()}</small>
-            </div>
-            <div className="graphic-actions">
-              {graphic.fileUrl && (
-                <a
-                  className="ghost download-button"
-                  href={graphic.fileUrl}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  הורדה
-                </a>
-              )}
-              <button className="ghost" onClick={() => setGraphicToDelete(graphic)} disabled={isDisabled}>
-                מחק
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {graphics.length === 0 && (
           <p className="empty-state">אין קבצים שמורים עבור לקוח זה.</p>
