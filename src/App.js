@@ -37,8 +37,8 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div>
-          <h1>Karina CRM · Production Desk</h1>
-          <p>Manage customers, graphics, and production steps in one place.</p>
+          <h1>Karina CRM</h1>
+          <p>ניהול לקוחות, גרפיקות ולוגואים</p>
         </div>
         {user && (
           <div className="user-box">
@@ -66,7 +66,7 @@ function App() {
               <CustomerDetails customerId={selectedCustomerId} />
             ) : (
               <div className="empty-state">
-                <p>Select a customer to view their details and production flow.</p>
+                <p>בחרו לקוח כדי לצפות בפרטים ובקבצים שלו</p>
               </div>
             )}
           </section>

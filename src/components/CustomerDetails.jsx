@@ -2,25 +2,19 @@ import { useEffect, useState } from 'react';
 import {
   fetchCustomerById,
   saveCustomerGraphics,
-  saveProductionSteps,
+  updateCustomerNotes,
 } from '../lib/customersApi';
 import { fetchCustomerGraphicsFromStorage } from '../lib/storage';
 import GraphicsList from './GraphicsList';
-import ProductionSteps from './ProductionSteps';
 
 export default function CustomerDetails({ customerId }) {
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updatingGraphics, setUpdatingGraphics] = useState(false);
-  const [updatingSteps, setUpdatingSteps] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState(null);
-
-  function getOrderLabel(order, index) {
-    const suffix = order.orderNumber || order.reference || order.id?.slice(-6) || index + 1;
-    const dateLabel = order.createdAt ? ` · ${new Date(order.createdAt).toLocaleDateString()}` : '';
-    return `הזמנה ${suffix}${dateLabel}`;
-  }
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -41,7 +35,6 @@ export default function CustomerDetails({ customerId }) {
               : data?.graphics;
           const nextCustomer = data ? { ...data, graphics: graphicsOverride } : null;
           setCustomer(nextCustomer);
-          setSelectedOrderId(nextCustomer?.orders?.[0]?.id || null);
         }
       } catch (err) {
         if (isMounted) {
@@ -68,14 +61,8 @@ export default function CustomerDetails({ customerId }) {
     setError(null);
     setCustomer((prev) => (prev ? { ...prev, graphics: nextGraphics } : prev));
     try {
-      const updated = await saveCustomerGraphics(customer.id, nextGraphics, selectedOrderId || null);
+      const updated = await saveCustomerGraphics(customer.id, nextGraphics);
       setCustomer(updated);
-      const fallbackOrderId = updated.orders?.[0]?.id || null;
-      if (selectedOrderId && !updated.orders?.some((order) => order.id === selectedOrderId)) {
-        setSelectedOrderId(fallbackOrderId);
-      } else if (!selectedOrderId && fallbackOrderId) {
-        setSelectedOrderId(fallbackOrderId);
-      }
     } catch (err) {
       const message =
         err?.code === 'permission-denied'
@@ -87,29 +74,29 @@ export default function CustomerDetails({ customerId }) {
     }
   }
 
-  async function handleStepsChange(nextSteps) {
+  async function handleSaveNotes() {
     if (!customer?.id) return;
-    if ((customer.orders?.length || 0) > 0 && !selectedOrderId) {
-      setError('יש לבחור הזמנה לפני עדכון שלבי הייצור.');
-      return;
-    }
-    setUpdatingSteps(true);
+    setSavingNotes(true);
     setError(null);
     try {
-      const targetOrderId = selectedOrderId || customer.orders?.[0]?.id || null;
-      const updated = await saveProductionSteps(customer.id, nextSteps, targetOrderId);
+      const updated = await updateCustomerNotes(customer.id, notesValue);
       setCustomer(updated);
-      const fallbackOrderId = updated.orders?.[0]?.id || null;
-      if (targetOrderId && !updated.orders?.some((order) => order.id === targetOrderId)) {
-        setSelectedOrderId(fallbackOrderId);
-      } else if (!selectedOrderId && fallbackOrderId) {
-        setSelectedOrderId(fallbackOrderId);
-      }
+      setEditingNotes(false);
     } catch (err) {
-      setError(err.message || 'שגיאה בשמירת שלבי הייצור.');
+      setError(err.message || 'שגיאה בשמירת ההערות.');
     } finally {
-      setUpdatingSteps(false);
+      setSavingNotes(false);
     }
+  }
+
+  function startEditingNotes() {
+    setNotesValue(customer?.notes || '');
+    setEditingNotes(true);
+  }
+
+  function cancelEditingNotes() {
+    setEditingNotes(false);
+    setNotesValue('');
   }
 
   if (loading) {
@@ -120,13 +107,6 @@ export default function CustomerDetails({ customerId }) {
     return <p className="status-message">לא נמצאו פרטי לקוח.</p>;
   }
 
-  const availableOrders = customer.orders || [];
-  const activeOrder =
-    availableOrders.find((order) => order.id === selectedOrderId) ||
-    availableOrders[0] ||
-    null;
-  const stepsToDisplay = activeOrder?.productionSteps || customer.productionSteps || [];
-
   return (
     <div className="customer-details">
       {error && <p className="status-message error">{error}</p>}
@@ -135,45 +115,50 @@ export default function CustomerDetails({ customerId }) {
         {customer.company && <p>חברה: {customer.company}</p>}
         {customer.phone && <p>טלפון: {customer.phone}</p>}
         {customer.email && <p>אימייל: {customer.email}</p>}
-        {customer.notes && <p>הערות: {customer.notes}</p>}
+        {customer.city && <p>עיר: {customer.city}</p>}
       </div>
 
       <section>
-        <h3>קבצים גרפיים</h3>
+        <div className="section-header">
+          <h3>הערות</h3>
+          {!editingNotes && (
+            <button className="ghost" onClick={startEditingNotes} style={{ fontSize: '0.9rem', padding: '0.4rem 0.8rem' }}>
+              ערוך
+            </button>
+          )}
+        </div>
+        {editingNotes ? (
+          <div className="form">
+            <textarea
+              value={notesValue}
+              onChange={(e) => setNotesValue(e.target.value)}
+              placeholder="הוסיפו הערות חשובות, שינויים, ציפיות ועוד..."
+              disabled={savingNotes}
+              style={{ minHeight: '100px' }}
+            />
+            <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+              <button onClick={handleSaveNotes} disabled={savingNotes}>
+                {savingNotes ? 'שומר...' : 'שמור'}
+              </button>
+              <button className="ghost" onClick={cancelEditingNotes} disabled={savingNotes}>
+                ביטול
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className={`notes-display ${!customer.notes ? 'empty' : ''}`}>
+            {customer.notes || 'אין הערות'}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h3>קבצים גרפיים ולוגואים</h3>
         <GraphicsList
           graphics={customer.graphics || []}
           onChange={handleGraphicsChange}
           disabled={updatingGraphics}
           folderId={customer.firebaseUid || customer.id}
-        />
-      </section>
-
-      <section>
-        <h3>תהליך הייצור</h3>
-        {availableOrders.length > 0 ? (
-          <div className="order-selector">
-            <label>
-              בחרו הזמנה
-              <select
-                value={selectedOrderId || availableOrders[0]?.id || ''}
-                onChange={(event) => setSelectedOrderId(event.target.value)}
-                disabled={updatingSteps}
-              >
-                {availableOrders.map((order, index) => (
-                  <option key={order.id} value={order.id}>
-                    {getOrderLabel(order, index)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        ) : (
-          <p className="status-message">אין הזמנות פעילות ללקוח זה.</p>
-        )}
-        <ProductionSteps
-          steps={stepsToDisplay}
-          onChange={handleStepsChange}
-          disabled={updatingSteps}
         />
       </section>
     </div>

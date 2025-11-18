@@ -348,30 +348,43 @@ export async function createCustomer(data) {
   return fetchCustomerById(userRef.id);
 }
 
-export async function saveCustomerGraphics(customerId, graphics, orderId = null) {
+export async function saveCustomerGraphics(customerId, graphics) {
   if (isTestEnv) {
     const index = memoryStore.customers.findIndex((customer) => customer.id === customerId);
     if (index === -1) {
       return null;
     }
-    const orders = memoryStore.orders.get(customerId) || [];
-    const targetIndex =
-      orderId != null ? orders.findIndex((order) => order.id === orderId) : 0;
-    if (targetIndex >= 0 && orders[targetIndex]) {
-      orders[targetIndex] = { ...orders[targetIndex], graphics };
-      memoryStore.orders.set(customerId, orders);
-    }
     memoryStore.customers[index] = {
       ...memoryStore.customers[index],
       graphics,
-      orders,
     };
     return memoryStore.customers[index];
   }
 
-  const { ref } = await ensureOrderRef(customerId, orderId);
-  await updateDoc(ref, {
+  const userRef = doc(db, USERS_COLLECTION, customerId);
+  await updateDoc(userRef, {
     graphics,
+    updatedAt: serverTimestamp(),
+  });
+  return fetchCustomerById(customerId);
+}
+
+export async function updateCustomerNotes(customerId, notes) {
+  if (isTestEnv) {
+    const index = memoryStore.customers.findIndex((customer) => customer.id === customerId);
+    if (index === -1) {
+      return null;
+    }
+    memoryStore.customers[index] = {
+      ...memoryStore.customers[index],
+      notes: notes?.trim() || '',
+    };
+    return memoryStore.customers[index];
+  }
+
+  const userRef = doc(db, USERS_COLLECTION, customerId);
+  await updateDoc(userRef, {
+    notes: notes?.trim() || '',
     updatedAt: serverTimestamp(),
   });
   return fetchCustomerById(customerId);
