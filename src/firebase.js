@@ -31,9 +31,7 @@ let appCheck;
 
 // הוספת App Check Debug Token למצב פיתוח
 if (typeof window !== 'undefined' && !isTestEnv) {
-  // Debug token for localhost development
-  window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-  
+  // Debug token for localhost development  
   // הפעלת App Check עם reCAPTCHA
   if (!window.__APP_CHECK_INSTANCE) {
     window.__APP_CHECK_INSTANCE = initializeAppCheck(app, {
