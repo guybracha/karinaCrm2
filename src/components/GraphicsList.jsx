@@ -11,6 +11,8 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [graphicToDelete, setGraphicToDelete] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [fileTypeFilter, setFileTypeFilter] = useState('all'); // 'all', 'images', 'pdfs'
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -88,9 +90,30 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
     setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, graphics.length));
   }
 
+  // סינון תמונות לפי חיפוש וסוג קובץ
+  const filteredGraphics = graphics.filter((graphic) => {
+    const isPdf = graphic.path?.toLowerCase().endsWith('.pdf') || 
+                  graphic.fileUrl?.toLowerCase().endsWith('.pdf') ||
+                  graphic.label?.toLowerCase().includes('pdf');
+    
+    // סינון לפי סוג קובץ
+    if (fileTypeFilter === 'images' && isPdf) return false;
+    if (fileTypeFilter === 'pdfs' && !isPdf) return false;
+    
+    // סינון לפי חיפוש
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const labelMatch = graphic.label?.toLowerCase().includes(query);
+      const pathMatch = graphic.path?.toLowerCase().includes(query);
+      return labelMatch || pathMatch;
+    }
+    
+    return true;
+  });
+
   const isDisabled = disabled || pending;
-  const visibleGraphics = graphics.slice(0, visibleCount);
-  const hasMore = graphics.length > visibleCount;
+  const visibleGraphics = filteredGraphics.slice(0, visibleCount);
+  const hasMore = filteredGraphics.length > visibleCount;
 
   return (
     <div className="graphics-section">
@@ -116,6 +139,32 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
         </button>
       </form>
       {statusMessage && <p className="status-message error">{statusMessage}</p>}
+
+      {/* חיפוש וסינון */}
+      <div className="graphics-filters" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', marginBottom: '1rem' }}>
+        <input
+          type="text"
+          placeholder="חיפוש לפי שם תמונה..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)' }}
+        />
+        <select 
+          value={fileTypeFilter} 
+          onChange={(e) => setFileTypeFilter(e.target.value)}
+          style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', minWidth: '150px' }}
+        >
+          <option value="all">כל הקבצים</option>
+          <option value="images">תמונות בלבד</option>
+          <option value="pdfs">PDFs בלבד</option>
+        </select>
+      </div>
+
+      {searchQuery && (
+        <p style={{ color: 'var(--subtext)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+          נמצאו {filteredGraphics.length} מתוך {graphics.length} קבצים
+        </p>
+      )}
 
       <div className="graphics-grid">
         {visibleGraphics.map((graphic) => {
@@ -186,6 +235,10 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
 
         {graphics.length === 0 && (
           <p className="empty-state">אין קבצים שמורים עבור לקוח זה.</p>
+        )}
+        
+        {graphics.length > 0 && filteredGraphics.length === 0 && (
+          <p className="empty-state">לא נמצאו קבצים התואמים לחיפוש</p>
         )}
       </div>
 

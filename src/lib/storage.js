@@ -61,7 +61,12 @@ async function fetchAllGraphicsForPath(path) {
       };
     }),
   );
-  return graphics;
+  // מיון לפי תאריך העלאה (מהחדש לישן) - השוואה כמחרוזות ISO
+  return graphics.sort((a, b) => {
+    const dateA = a.uploadedAt || '';
+    const dateB = b.uploadedAt || '';
+    return dateB.localeCompare(dateA);
+  });
 }
 
 export async function fetchCustomerGraphicsFromStorage(folderId) {
@@ -75,6 +80,7 @@ export async function fetchCustomerGraphicsFromStorage(folderId) {
   }
 
   try {
+    // טעינה מקבילית של כל המקורות
     const [ordersGraphics, userLogos, legacyLogos] = await Promise.all([
       fetchAllGraphicsForPath(buildOrdersPath(safeId)).catch((error) => {
         if (error.code === 'storage/object-not-found') {
@@ -95,7 +101,14 @@ export async function fetchCustomerGraphicsFromStorage(folderId) {
         throw error;
       }),
     ]);
-    return [...ordersGraphics, ...userLogos, ...legacyLogos];
+    
+    // מיזוג ומיון לפי תאריך (מהחדש לישן)
+    const allGraphics = [...ordersGraphics, ...userLogos, ...legacyLogos];
+    return allGraphics.sort((a, b) => {
+      const dateA = a.uploadedAt || '';
+      const dateB = b.uploadedAt || '';
+      return dateB.localeCompare(dateA);
+    });
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('Failed loading graphics from Storage', error);

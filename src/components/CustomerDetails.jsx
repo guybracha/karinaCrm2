@@ -5,7 +5,6 @@ import {
   updateCustomerNotes,
   updateCustomerTasks,
 } from '../lib/customersApi';
-import { fetchCustomerGraphicsFromStorage } from '../lib/storage';
 import GraphicsList from './GraphicsList';
 import TaskBoard from './TaskBoard';
 
@@ -26,18 +25,8 @@ export default function CustomerDetails({ customerId }) {
       setError(null);
       try {
         const data = await fetchCustomerById(customerId);
-        let storageGraphics = null;
-        if (data) {
-          const folderId = data.firebaseUid || data.id;
-          storageGraphics = await fetchCustomerGraphicsFromStorage(folderId).catch(() => null);
-        }
         if (isMounted) {
-          const graphicsOverride =
-            storageGraphics && storageGraphics.length > 0
-              ? storageGraphics
-              : data?.graphics;
-          const nextCustomer = data ? { ...data, graphics: graphicsOverride } : null;
-          setCustomer(nextCustomer);
+          setCustomer(data);
         }
       } catch (err) {
         if (isMounted) {

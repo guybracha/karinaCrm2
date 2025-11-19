@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { generateId } from './id';
+import { fetchCustomerGraphicsFromStorage } from './storage';
 
 const USERS_COLLECTION = 'users_prod';
 const ORDERS_COLLECTION = 'orders_prod';
@@ -115,7 +116,7 @@ function mapToCustomer(docSnap, orderData) {
     email: data.email || '',
     city: data.city || '',
     notes: data.notes || '',
-    graphics: normalizeGraphics(orderData?.graphics),
+    graphics: normalizeGraphics(data.graphics || orderData?.graphics),
     productionSteps: normalizeSteps(orderData?.productionSteps),
   };
 }
@@ -301,6 +302,7 @@ export async function fetchCustomerById(id) {
       orders,
       graphics: orders[0]?.graphics || customer.graphics,
       productionSteps: orders[0]?.productionSteps || customer.productionSteps,
+      tasks: customer.tasks || [],
     };
   }
   const userRef = doc(db, USERS_COLLECTION, id);
@@ -309,12 +311,43 @@ export async function fetchCustomerById(id) {
     return null;
   }
   const data = snapshot.data() || {};
+  
+  // טעינת tasks ו-graphics ישירות מהמסמך (מהיר)
+  const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+  const firestoreGraphics = normalizeGraphics(data.graphics);
+  
+  // טעינת תמונות מ-Storage במקביל (לא חוסם)
   const firebaseUid = data.firebaseUid || id;
-  const alternateIds = firebaseUid && firebaseUid !== id ? [firebaseUid] : [];
-  const orders = await fetchOrdersByUser(id, alternateIds);
-  const orderData = orders[0] || (await getOrderForUser(id));
-  const mapped = mapToCustomer(snapshot, orderData);
-  return { ...mapped, orders };
+  const storageGraphicsPromise = fetchCustomerGraphicsFromStorage(firebaseUid).catch(() => []);
+  
+  const mapped = mapToCustomer(snapshot, null);
+  
+  // אם יש תמונות ב-Firestore, נחזיר מיד, אחרת נחכה ל-Storage
+  if (firestoreGraphics.length > 0) {
+    // נחזיר מיד עם תמונות מ-Firestore ונעדכן ברקע
+    storageGraphicsPromise.then(storageGraphics => {
+      if (storageGraphics.length > 0) {
+        // מיזוג וסידור לפי תאריך (מהחדש לישן)
+        const allGraphics = [...storageGraphics, ...firestoreGraphics];
+        const uniqueGraphics = Array.from(
+          new Map(allGraphics.map(g => [g.id, g])).values()
+        ).sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+      }
+    });
+    return { ...mapped, tasks, graphics: firestoreGraphics };
+  }
+  
+  // אין תמונות ב-Firestore, נחכה ל-Storage
+  const storageGraphics = await storageGraphicsPromise;
+  const graphics = storageGraphics.length > 0 
+    ? storageGraphics.sort((a, b) => {
+        const dateA = a.uploadedAt || '';
+        const dateB = b.uploadedAt || '';
+        return dateB.localeCompare(dateA);
+      })
+    : [];
+  
+  return { ...mapped, tasks, graphics };
 }
 
 export async function createCustomer(data) {
