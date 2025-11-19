@@ -69,7 +69,16 @@ export default function CustomerList({ onSelect, selectedId }) {
       setModalOpen(false);
       onSelect?.(customer?.id);
     } catch (err) {
-      setError(err.message || 'אירעה שגיאה בעת שמירת הלקוח החדש.');
+      console.error('שגיאה ביצירת לקוח:', err);
+      console.error('קוד שגיאה:', err.code);
+      console.error('הודעת שגיאה:', err.message);
+      const errorMessage = err.code === 'permission-denied' 
+        ? 'אין לך הרשאה ליצור לקוחות חדשים. בדוק את הגדרות Firebase Security Rules.'
+        : err.code === 'unauthenticated'
+        ? 'עליך להיות מחובר כדי ליצור לקוח חדש.'
+        : err.message || 'אירעה שגיאה בעת שמירת הלקוח החדש.';
+      setError(errorMessage);
+      alert(`שגיאה: ${errorMessage}\n\nפרטים טכניים: ${err.code || 'לא ידוע'}`);
     } finally {
       setSubmitting(false);
     }

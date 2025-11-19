@@ -364,21 +364,71 @@ export async function createCustomer(data) {
     return createMemoryCustomer(payload);
   }
 
-  const userRef = await addDoc(collection(db, USERS_COLLECTION), {
-    ...payload,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  try {
+    console.log('מנסה ליצור לקוח חדש...', payload);
+    
+    // התאמת המבנה ל-Security Rules של users_prod
+    const userDocData = {
+      displayName: payload.name, // Rules מצפה ל-displayName
+      email: payload.email || null,
+      phoneNumber: payload.phone || null, // Rules מצפה ל-phoneNumber
+      company: payload.company || null,
+      city: payload.city || null,
+      notes: payload.notes || null,
+      // שדות נוספים לשימוש פנימי ב-CRM
+      name: payload.name,
+      phone: payload.phone,
+      graphics: [], // רשימת גרפיקות
+      tasks: [], // רשימת משימות
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    
+    const userRef = await addDoc(collection(db, USERS_COLLECTION), userDocData);
 
-  await addDoc(collection(db, ORDERS_COLLECTION), {
-    userId: userRef.id,
-    graphics: [],
-    productionSteps: defaultSteps(),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+    console.log('לקוח נוצר בהצלחה, ID:', userRef.id);
 
-  return fetchCustomerById(userRef.id);
+    // יצירת הזמנה ראשונית בפורמט שעומד ב-validOrderOnCreate
+    // שימו לב: items חייבים להכיל לפחות פריט אחד לפי ה-Rules
+    const orderDocData = {
+      customer: {
+        uid: userRef.id,
+        displayName: payload.name,
+        email: payload.email || '',
+        phoneNumber: payload.phone || '',
+      },
+      status: 'draft', // סטטוס ראשוני מותר לפי validInitialOrderStatus
+      items: [
+        {
+          productId: 'placeholder-initial',
+          qty: 1,
+          unitPrice: 0,
+        }
+      ], // פריט placeholder כדי לעמוד בדרישת Rules (items.size() > 0)
+      userId: userRef.id, // עבור תאימות לאחור
+      graphics: [],
+      productionSteps: defaultSteps(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await addDoc(collection(db, ORDERS_COLLECTION), orderDocData);
+
+    console.log('הזמנה ראשונית נוצרה בהצלחה');
+
+    return fetchCustomerById(userRef.id);
+  } catch (error) {
+    console.error('שגיאה ביצירת לקוח:', error);
+    console.error('קוד שגיאה:', error.code);
+    console.error('הודעה:', error.message);
+    
+    // זריקת שגיאה עם מידע נוסף
+    if (error.code === 'permission-denied') {
+      throw new Error(`אין הרשאה ליצור לקוח חדש. וודא שאתה מחובר כעובד פעיל (staff) או שיש לך הרשאות CRM Editor. קוד: ${error.code}`);
+    }
+    
+    throw error;
+  }
 }
 
 export async function saveCustomerGraphics(customerId, graphics) {
