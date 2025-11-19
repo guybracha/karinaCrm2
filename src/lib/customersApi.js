@@ -390,6 +390,7 @@ export async function createCustomer(data) {
 
     // יצירת הזמנה ראשונית בפורמט שעומד ב-validOrderOnCreate
     // שימו לב: items חייבים להכיל לפחות פריט אחד לפי ה-Rules
+    // רק שדות המותרים לפי allowedOrderKeysClient: customer, items, status, shipping, notes, createdAt, updatedAt
     const orderDocData = {
       customer: {
         uid: userRef.id,
@@ -405,16 +406,19 @@ export async function createCustomer(data) {
           unitPrice: 0,
         }
       ], // פריט placeholder כדי לעמוד בדרישת Rules (items.size() > 0)
-      userId: userRef.id, // עבור תאימות לאחור
-      graphics: [],
-      productionSteps: defaultSteps(),
+      notes: '', // שדה notes מותר
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
 
-    await addDoc(collection(db, ORDERS_COLLECTION), orderDocData);
-
-    console.log('הזמנה ראשונית נוצרה בהצלחה');
+    try {
+      await addDoc(collection(db, ORDERS_COLLECTION), orderDocData);
+      console.log('הזמנה ראשונית נוצרה בהצלחה');
+    } catch (orderError) {
+      console.error('שגיאה ביצירת הזמנה:', orderError);
+      // הלקוח כבר נוצר, אז נמשיך גם אם ההזמנה נכשלה
+      console.warn('הלקוח נוצר בהצלחה אך ההזמנה הראשונית נכשלה. ניתן ליצור אותה מאוחר יותר.');
+    }
 
     return fetchCustomerById(userRef.id);
   } catch (error) {
@@ -422,7 +426,7 @@ export async function createCustomer(data) {
     console.error('קוד שגיאה:', error.code);
     console.error('הודעה:', error.message);
     
-    // זריקת שגיאה עם מידע נוסף
+    // זריקת שגיאה עם מידע נוסף רק אם הלקוח לא נוצר
     if (error.code === 'permission-denied') {
       throw new Error(`אין הרשאה ליצור לקוח חדש. וודא שאתה מחובר כעובד פעיל (staff) או שיש לך הרשאות CRM Editor. קוד: ${error.code}`);
     }

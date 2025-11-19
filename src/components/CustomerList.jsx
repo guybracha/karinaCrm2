@@ -65,9 +65,15 @@ export default function CustomerList({ onSelect, selectedId }) {
     setError(null);
     try {
       const customer = await createCustomer(formData);
-      await load();
       setModalOpen(false);
-      onSelect?.(customer?.id);
+      
+      // רענון מיידי של רשימת הלקוחות
+      await load();
+      
+      // בחירת הלקוח החדש
+      if (customer?.id) {
+        onSelect?.(customer.id);
+      }
     } catch (err) {
       console.error('שגיאה ביצירת לקוח:', err);
       console.error('קוד שגיאה:', err.code);
