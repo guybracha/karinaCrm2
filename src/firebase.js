@@ -29,37 +29,22 @@ const storage = (() => {
 const isTestEnv = process.env.NODE_ENV === 'test';
 let appCheck;
 
-// הוספת App Check Debug Token למצב פיתוח
+// App Check עם debug token למצב פיתוח
 if (typeof window !== 'undefined' && !isTestEnv) {
-  // Debug token for localhost development  
-  // הפעלת App Check עם reCAPTCHA
-  if (!window.__APP_CHECK_INSTANCE) {
-    window.__APP_CHECK_INSTANCE = initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
-      isTokenAutoRefreshEnabled: true,
-    });
+  // הפעלת debug mode
+  window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  
+  try {
+    if (!window.__APP_CHECK_INSTANCE && RECAPTCHA_SITE_KEY) {
+      window.__APP_CHECK_INSTANCE = initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true,
+      });
+      appCheck = window.__APP_CHECK_INSTANCE;
+    }
+  } catch (error) {
+    console.warn('App Check initialization failed:', error);
   }
-  appCheck = window.__APP_CHECK_INSTANCE;
 }
-
-/*
-// App Check מושבת בינתיים - אפשר להפעיל מחדש עם reCAPTCHA key תקין
-/*
-if (typeof window !== 'undefined' && !isTestEnv && RECAPTCHA_SITE_KEY) {
-  // Ensure every auth/firestore request carries an App Check token (required once enforcement is on).
-  const globalScope = window;
-  if (process.env.REACT_APP_APPCHECK_DEBUG_TOKEN) {
-    globalScope.FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.REACT_APP_APPCHECK_DEBUG_TOKEN;
-  }
-
-  if (!globalScope.__APP_CHECK_INSTANCE) {
-    globalScope.__APP_CHECK_INSTANCE = initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
-      isTokenAutoRefreshEnabled: true,
-    });
-  }
-  appCheck = globalScope.__APP_CHECK_INSTANCE;
-}
-*/
 
 export { app, auth, db, appCheck, storage };
