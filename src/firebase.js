@@ -27,11 +27,13 @@ const storage = (() => {
   }
 })();
 const isTestEnv = process.env.NODE_ENV === 'test';
+const isProduction = process.env.NODE_ENV === 'production';
+const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 let appCheck;
 
-// App Check עם debug token למצב פיתוח
-if (typeof window !== 'undefined' && !isTestEnv) {
-  // הפעלת debug mode
+// App Check - רק ב-localhost עם debug token
+if (typeof window !== 'undefined' && !isTestEnv && isLocalhost) {
+  // הפעלת debug mode ב-localhost בלבד
   window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
   
   try {
