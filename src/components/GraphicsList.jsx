@@ -13,6 +13,7 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
   const [statusMessage, setStatusMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [fileTypeFilter, setFileTypeFilter] = useState('all'); // 'all', 'images', 'pdfs'
+  const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -27,6 +28,17 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
       return Math.min(prev, graphics.length);
     });
   }, [graphics]);
+
+  // ניקוי preview URL כשמשנים קובץ
+  useEffect(() => {
+    if (selectedFile) {
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [selectedFile]);
 
   async function addGraphic(event) {
     event.preventDefault();
@@ -56,6 +68,7 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
       await onChange?.([...graphics, newGraphic]);
       setLabel('');
       setSelectedFile(null);
+      setPreviewUrl(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -138,6 +151,68 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
           {pending ? 'מעלה...' : 'העלה'}
         </button>
       </form>
+      
+      {/* תצוגה מקדימה של הקובץ */}
+      {selectedFile && previewUrl && (
+        <div style={{ 
+          marginTop: '1rem', 
+          padding: '1rem', 
+          border: '2px dashed var(--accent)', 
+          borderRadius: '8px',
+          backgroundColor: 'var(--bg)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <strong>תצוגה מקדימה:</strong>
+            <button 
+              type="button"
+              className="ghost"
+              onClick={() => {
+                setSelectedFile(null);
+                setPreviewUrl(null);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
+              }}
+              style={{ fontSize: '0.85rem', padding: '0.3rem 0.6rem' }}
+            >
+              ביטול
+            </button>
+          </div>
+          <div style={{ 
+            maxWidth: '300px', 
+            maxHeight: '300px', 
+            margin: '0 auto',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'white',
+            borderRadius: '4px',
+            overflow: 'hidden'
+          }}>
+            {selectedFile.type.startsWith('image/') ? (
+              <img 
+                src={previewUrl} 
+                alt="תצוגה מקדימה"
+                style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }}
+              />
+            ) : selectedFile.type === 'application/pdf' ? (
+              <div style={{ padding: '2rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>📄</div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--subtext)' }}>{selectedFile.name}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--subtext)', marginTop: '0.3rem' }}>
+                  {(selectedFile.size / 1024).toFixed(0)} KB
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--subtext)' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📎</div>
+                <div>{selectedFile.name}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       {statusMessage && <p className="status-message error">{statusMessage}</p>}
 
       {/* חיפוש וסינון */}
