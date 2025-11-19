@@ -2,6 +2,8 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
+import { RECAPTCHA_SITE_KEY } from './config';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -27,7 +29,26 @@ const storage = (() => {
 const isTestEnv = process.env.NODE_ENV === 'test';
 let appCheck;
 
-// App Check מושבת - ה-CRM לא משתמש ב-App Check
-// רק האתר הראשי משתמש ב-App Check
+// App Check עם תמיכה ב-localhost (debug) וב-production (reCAPTCHA)
+if (typeof window !== 'undefined' && !isTestEnv && RECAPTCHA_SITE_KEY) {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  // הפעלת debug token רק ב-localhost
+  if (isLocalhost) {
+    window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+  
+  try {
+    if (!window.__APP_CHECK_INSTANCE) {
+      window.__APP_CHECK_INSTANCE = initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true,
+      });
+      appCheck = window.__APP_CHECK_INSTANCE;
+    }
+  } catch (error) {
+    console.warn('App Check initialization failed:', error);
+  }
+}
 
 export { app, auth, db, appCheck, storage };
