@@ -251,6 +251,11 @@ button.ghost:hover {
 .customer-header {
   text-align: right;
   direction: rtl;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .customer-header h2,

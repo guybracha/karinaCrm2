@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -525,5 +526,41 @@ export async function saveProductionSteps(customerId, steps, orderId = null) {
     updatedAt: serverTimestamp(),
   });
   return fetchCustomerById(customerId);
+}
+
+export async function deleteCustomer(customerId) {
+  if (isTestEnv) {
+    const index = memoryStore.customers.findIndex((customer) => customer.id === customerId);
+    if (index !== -1) {
+      memoryStore.customers.splice(index, 1);
+      memoryStore.orders.delete(customerId);
+    }
+    return;
+  }
+
+  try {
+    console.log('מוחק לקוח:', customerId);
+
+    // מחיקת כל ההזמנות של הלקוח
+    const ordersQuery = query(
+      collection(db, ORDERS_COLLECTION),
+      where('userId', '==', customerId)
+    );
+    const ordersSnapshot = await getDocs(ordersQuery);
+    
+    const deletePromises = ordersSnapshot.docs.map((orderDoc) =>
+      deleteDoc(doc(db, ORDERS_COLLECTION, orderDoc.id))
+    );
+    
+    await Promise.all(deletePromises);
+    console.log(`נמחקו ${deletePromises.length} הזמנות`);
+
+    // מחיקת הלקוח עצמו
+    await deleteDoc(doc(db, USERS_COLLECTION, customerId));
+    console.log('הלקוח נמחק בהצלחה');
+  } catch (error) {
+    console.error('שגיאה במחיקת לקוח:', error);
+    throw error;
+  }
 }
 

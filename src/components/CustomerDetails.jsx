@@ -4,6 +4,7 @@ import {
   saveCustomerGraphics,
   updateCustomerNotes,
   updateCustomerTasks,
+  deleteCustomer,
 } from '../lib/customersApi';
 import GraphicsList from './GraphicsList';
 import TaskBoard from './TaskBoard';
@@ -17,6 +18,8 @@ export default function CustomerDetails({ customerId }) {
   const [notesValue, setNotesValue] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [savingTasks, setSavingTasks] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -106,6 +109,26 @@ export default function CustomerDetails({ customerId }) {
     }
   }
 
+  async function handleDeleteCustomer() {
+    if (!customer?.id) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteCustomer(customer.id);
+      setShowDeleteModal(false);
+      // רענון הדף או חזרה לרשימת הלקוחות
+      window.location.reload();
+    } catch (err) {
+      const message = err?.code === 'permission-denied'
+        ? 'אין הרשאה למחוק לקוחות. בדוק את הגדרות Firebase Security Rules.'
+        : err.message || 'שגיאה במחיקת הלקוח.';
+      setError(message);
+      setShowDeleteModal(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return <p className="status-message">טוען פרטי לקוח...</p>;
   }
@@ -118,11 +141,25 @@ export default function CustomerDetails({ customerId }) {
     <div className="customer-details">
       {error && <p className="status-message error">{error}</p>}
       <div className="customer-header">
-        <h2>{customer.name}</h2>
-        {customer.company && <p>חברה: {customer.company}</p>}
-        {customer.phone && <p>טלפון: {customer.phone}</p>}
-        {customer.email && <p>אימייל: {customer.email}</p>}
-        {customer.city && <p>עיר: {customer.city}</p>}
+        <div>
+          <h2>{customer.name}</h2>
+          {customer.company && <p>חברה: {customer.company}</p>}
+          {customer.phone && <p>טלפון: {customer.phone}</p>}
+          {customer.email && <p>אימייל: {customer.email}</p>}
+          {customer.city && <p>עיר: {customer.city}</p>}
+        </div>
+        <button 
+          className="ghost" 
+          onClick={() => setShowDeleteModal(true)}
+          disabled={deleting}
+          style={{ 
+            color: '#dc3545', 
+            border: '1px solid #dc3545',
+            alignSelf: 'flex-start'
+          }}
+        >
+          🗑️ מחק לקוח
+        </button>
       </div>
 
       <section>
@@ -177,6 +214,60 @@ export default function CustomerDetails({ customerId }) {
           disabled={savingTasks}
         />
       </section>
+
+      {/* מודל אישור מחיקה */}
+      {showDeleteModal && (
+        <div className="crm-modal-backdrop" onClick={() => !deleting && setShowDeleteModal(false)}>
+          <div
+            className="crm-modal crm-modal-rtl"
+            role="dialog"
+            aria-modal="true"
+            aria-label="אישור מחיקת לקוח"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '500px' }}
+          >
+            <div className="crm-modal-header">
+              <div>
+                <h3>❗ אישור מחיקה</h3>
+                <p className="crm-modal-subtitle">
+                  האם אתה בטוח שברצונך למחוק את הלקוח <strong>{customer.name}</strong>?
+                </p>
+                <p className="crm-modal-subtitle" style={{ color: '#dc3545', marginTop: '0.5rem' }}>
+                  פעולה זו תמחק את כל ההזמנות והקבצים של הלקוח ולא ניתן לבטל אותה!
+                </p>
+              </div>
+              <button
+                type="button"
+                className="crm-modal-close"
+                onClick={() => setShowDeleteModal(false)}
+                aria-label="סגור"
+                disabled={deleting}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+              >
+                לא, ביטול
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCustomer}
+                disabled={deleting}
+                style={{ backgroundColor: '#dc3545', borderColor: '#dc3545' }}
+              >
+                {deleting ? 'מוחק...' : 'כן, מחק לקוח'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
