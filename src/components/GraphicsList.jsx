@@ -243,23 +243,60 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
 
       <div className="graphics-grid">
         {visibleGraphics.map((graphic) => {
-          const isPdf = graphic.path?.toLowerCase().endsWith('.pdf') || graphic.label?.toLowerCase().includes('pdf');
+          const isPdf = graphic.path?.toLowerCase().endsWith('.pdf') || 
+                        graphic.fileUrl?.toLowerCase().endsWith('.pdf') ||
+                        graphic.label?.toLowerCase().includes('pdf');
+          
+          // בדיקה אם יש URL תקין
+          const hasValidUrl = graphic.fileUrl && graphic.fileUrl.startsWith('http');
           
           return (
             <div key={graphic.id} className="graphic-card">
               <div className="graphic-thumb">
-                {graphic.fileUrl ? (
+                {hasValidUrl ? (
                   isPdf ? (
-                    <iframe 
-                      src={graphic.fileUrl} 
-                      title={graphic.label}
-                      style={{ width: '100%', height: '100%', border: 'none' }}
-                    />
+                    <div style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      backgroundColor: '#fff3cd',
+                      gap: '0.5rem'
+                    }}>
+                      <div style={{ fontSize: '4rem' }}>📄</div>
+                      <div style={{ fontSize: '0.8rem', color: '#856404', textAlign: 'center', padding: '0 0.5rem' }}>
+                        קובץ PDF
+                      </div>
+                    </div>
                   ) : (
-                    <img src={graphic.fileUrl} alt={graphic.label} />
+                    <img 
+                      src={graphic.fileUrl} 
+                      alt={graphic.label}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--subtext);"><div style="font-size:2rem">🖼️</div><div style="font-size:0.8rem;margin-top:0.5rem">תמונה לא זמינה</div></div>';
+                      }}
+                    />
                   )
                 ) : (
-                  <span>אין תצוגה מקדימה</span>
+                  <div style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#f8d7da',
+                    color: '#721c24',
+                    gap: '0.5rem'
+                  }}>
+                    <div style={{ fontSize: '2rem' }}>⚠️</div>
+                    <div style={{ fontSize: '0.8rem', textAlign: 'center', padding: '0 0.5rem' }}>
+                      קובץ לא זמין
+                    </div>
+                  </div>
                 )}
               </div>
               <div className="graphic-info">
@@ -267,7 +304,7 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
                 <small>נוסף ב-{new Date(graphic.uploadedAt).toLocaleDateString()}</small>
               </div>
               <div className="graphic-actions">
-                {graphic.fileUrl && (
+                {hasValidUrl && (
                   <>
                     {isPdf ? (
                       <>
@@ -276,15 +313,17 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
                           href={graphic.fileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
+                          style={{ fontSize: '0.85rem' }}
                         >
-                          פתח
+                          👁️ צפה
                         </a>
                         <a
                           className="ghost"
                           href={graphic.fileUrl}
                           download={graphic.label || 'file.pdf'}
+                          style={{ fontSize: '0.85rem' }}
                         >
-                          הורד
+                          ⬇️ הורד
                         </a>
                       </>
                     ) : (
@@ -299,6 +338,11 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
                       </a>
                     )}
                   </>
+                )}
+                {!hasValidUrl && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--subtext)' }}>
+                    קובץ פגום
+                  </span>
                 )}
                 <button className="ghost" onClick={() => setGraphicToDelete(graphic)} disabled={isDisabled}>
                   מחק
