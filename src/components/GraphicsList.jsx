@@ -6,14 +6,14 @@ const PAGE_SIZE = 9;
 
 export default function GraphicsList({ graphics = [], onChange, disabled, folderId }) {
   const [label, setLabel] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [pending, setPending] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [graphicToDelete, setGraphicToDelete] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [fileTypeFilter, setFileTypeFilter] = useState('all'); // 'all', 'images', 'pdfs'
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -29,21 +29,10 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
     });
   }, [graphics]);
 
-  // ניקוי preview URL כשמשנים קובץ
-  useEffect(() => {
-    if (selectedFile) {
-      const url = URL.createObjectURL(selectedFile);
-      setPreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
-    } else {
-      setPreviewUrl(null);
-    }
-  }, [selectedFile]);
-
   async function addGraphic(event) {
     event.preventDefault();
-    if (!selectedFile) {
-      setStatusMessage('לא נבחר קובץ להעלאה.');
+    if (!selectedFiles || selectedFiles.length === 0) {
+      setStatusMessage('לא נבחרו קבצים להעלאה.');
       return;
     }
     if (!folderId) {
@@ -52,30 +41,58 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
     }
     setStatusMessage(null);
 
-    const newGraphic = {
-      id: generateId(),
-      label: label.trim() || 'קובץ ללא תיאור',
-      uploadedAt: new Date().toISOString(),
-    };
     setPending(true);
+    setUploadProgress({ current: 0, total: selectedFiles.length });
+    const newGraphics = [];
+    const errors = [];
+
     try {
-      const uploadResult = await uploadCustomerGraphic(folderId, selectedFile, {
-        contentType: selectedFile.type,
-        customMetadata: { label: newGraphic.label, id: newGraphic.id },
-      });
-      newGraphic.fileUrl = uploadResult.fileUrl;
-      newGraphic.path = uploadResult.path;
-      await onChange?.([...graphics, newGraphic]);
-      setLabel('');
-      setSelectedFile(null);
-      setPreviewUrl(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const newGraphic = {
+          id: generateId(),
+          label: selectedFiles.length === 1 && label.trim() 
+            ? label.trim() 
+            : (label.trim() ? `${label.trim()} - ${file.name}` : file.name),
+          uploadedAt: new Date().toISOString(),
+        };
+
+        try {
+          setUploadProgress({ current: i + 1, total: selectedFiles.length });
+          const uploadResult = await uploadCustomerGraphic(folderId, file, {
+            contentType: file.type,
+            customMetadata: { label: newGraphic.label, id: newGraphic.id },
+          });
+          newGraphic.fileUrl = uploadResult.fileUrl;
+          newGraphic.path = uploadResult.path;
+          newGraphics.push(newGraphic);
+        } catch (error) {
+          errors.push(`${file.name}: ${error.message}`);
+        }
+      }
+
+      if (newGraphics.length > 0) {
+        await onChange?.([...graphics, ...newGraphics]);
+        setLabel('');
+        setSelectedFiles([]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+
+      if (errors.length > 0) {
+        setStatusMessage(`הועלו ${newGraphics.length} קבצים בהצלחה. שגיאות: ${errors.join(', ')}`);
+      } else if (newGraphics.length > 0) {
+        setStatusMessage(`הועלו ${newGraphics.length} קבצים בהצלחה!`);
+        setTimeout(() => setStatusMessage(null), 3000);
+      } else {
+        setStatusMessage('כל הקבצים נכשלו בהעלאה.');
       }
     } catch (error) {
-      setStatusMessage(error.message || 'אירעה שגיאה בהעלאת הקובץ.');
+      setStatusMessage(error.message || 'אירעה שגיאה בהעלאת הקבצים.');
     } finally {
       setPending(false);
+      setUploadProgress(null);
     }
   }
 
@@ -132,28 +149,29 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
     <div className="graphics-section">
       <form className="form-inline" onSubmit={addGraphic}>
         <input
-          placeholder="תיאור קובץ (לוגו, גרפיקה, PDF...)"
+          placeholder="תיאור קבצים (אופציונלי)"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
           disabled={isDisabled}
         />
         <label className="file-upload-wrapper btn btn-outline-secondary">
-          בחרו קובץ
+          {selectedFiles.length > 0 ? `נבחרו ${selectedFiles.length} קבצים` : 'בחרו קבצים'}
           <input
             type="file"
             ref={fileInputRef}
             accept="image/*,application/pdf"
-            onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+            multiple
+            onChange={(event) => setSelectedFiles(Array.from(event.target.files || []))}
             disabled={isDisabled}
           />
         </label>
         <button type="submit" disabled={isDisabled}>
-          {pending ? 'מעלה...' : 'העלה'}
+          {pending ? `מעלה... (${uploadProgress?.current || 0}/${uploadProgress?.total || 0})` : 'העלה'}
         </button>
       </form>
       
-      {/* תצוגה מקדימה של הקובץ */}
-      {selectedFile && previewUrl && (
+      {/* תצוגה מקדימה של הקבצים */}
+      {selectedFiles.length > 0 && (
         <div style={{ 
           marginTop: '1rem', 
           padding: '1rem', 
@@ -162,58 +180,111 @@ export default function GraphicsList({ graphics = [], onChange, disabled, folder
           backgroundColor: 'var(--bg)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <strong>תצוגה מקדימה:</strong>
+            <strong>תצוגה מקדימה ({selectedFiles.length} קבצים):</strong>
             <button 
               type="button"
               className="ghost"
               onClick={() => {
-                setSelectedFile(null);
-                setPreviewUrl(null);
+                setSelectedFiles([]);
                 if (fileInputRef.current) {
                   fileInputRef.current.value = '';
                 }
               }}
               style={{ fontSize: '0.85rem', padding: '0.3rem 0.6rem' }}
             >
-              ביטול
+              ביטול הכל
             </button>
           </div>
           <div style={{ 
-            maxWidth: '300px', 
-            maxHeight: '300px', 
-            margin: '0 auto',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: 'white',
-            borderRadius: '4px',
-            overflow: 'hidden'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+            gap: '0.5rem',
+            maxHeight: '400px',
+            overflowY: 'auto'
           }}>
-            {selectedFile.type.startsWith('image/') ? (
-              <img 
-                src={previewUrl} 
-                alt="תצוגה מקדימה"
-                style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }}
-              />
-            ) : selectedFile.type === 'application/pdf' ? (
-              <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>📄</div>
-                <div style={{ fontSize: '0.9rem', color: 'var(--subtext)' }}>{selectedFile.name}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--subtext)', marginTop: '0.3rem' }}>
-                  {(selectedFile.size / 1024).toFixed(0)} KB
+            {selectedFiles.map((file, index) => {
+              const previewUrl = URL.createObjectURL(file);
+              return (
+                <div key={index} style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: '4px',
+                  padding: '0.5rem',
+                  backgroundColor: 'white',
+                  position: 'relative'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newFiles = selectedFiles.filter((_, i) => i !== index);
+                      setSelectedFiles(newFiles);
+                      if (newFiles.length === 0 && fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '0.25rem',
+                      left: '0.25rem',
+                      background: 'rgba(255,0,0,0.8)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '20px',
+                      height: '20px',
+                      cursor: 'pointer',
+                      fontSize: '0.7rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 1
+                    }}
+                    title="הסר קובץ"
+                  >
+                    ×
+                  </button>
+                  <div style={{ 
+                    height: '100px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'hidden',
+                    marginBottom: '0.25rem'
+                  }}>
+                    {file.type.startsWith('image/') ? (
+                      <img 
+                        src={previewUrl} 
+                        alt={file.name}
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                        onLoad={() => URL.revokeObjectURL(previewUrl)}
+                      />
+                    ) : file.type === 'application/pdf' ? (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '2rem' }}>📄</div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '1.5rem' }}>📎</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--subtext)', wordBreak: 'break-word', textAlign: 'center' }}>
+                    {file.name}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--subtext)', textAlign: 'center', marginTop: '0.2rem' }}>
+                    {(file.size / 1024).toFixed(0)} KB
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--subtext)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📎</div>
-                <div>{selectedFile.name}</div>
-              </div>
-            )}
+              );
+            })}
           </div>
         </div>
       )}
       
-      {statusMessage && <p className="status-message error">{statusMessage}</p>}
+      {statusMessage && (
+        <p className={`status-message ${statusMessage.includes('בהצלחה') ? 'success' : 'error'}`}>
+          {statusMessage}
+        </p>
+      )}
 
       {/* חיפוש וסינון */}
       <div className="graphics-filters" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', marginBottom: '1rem' }}>
