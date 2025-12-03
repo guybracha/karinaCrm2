@@ -1,1 +1,43 @@
+סיכום שינויים - שליפת הזמנות לפי UID לקוח
+================================================
 
+תאריך: 3 בדצמבר 2025
+
+שינויים שבוצעו:
+----------------
+
+1. עדכון customersApi.js:
+   - runOrdersQueryForUser() - תמיכה בפורמט חדש (customer.uid) וישן (userId)
+   - fetchCustomerById() - טעינה אוטומטית של הזמנות
+   - mapOrderDoc() - הוספת שדות: customer, items, shipping, notes
+   - deleteCustomer() - מחיקת הזמנות בשני הפורמטים
+   - fetchCustomerOrders() - פונקציה ציבורית חדשה
+
+2. קומפוננטה חדשה - OrdersList.jsx:
+   - הצגה מסודרת של הזמנות
+   - סטטוסים עם צבעים
+   - פירוט פריטים
+   - תאריכים
+   - הערות
+
+3. עדכון CustomerDetails.jsx:
+   - ייבוא OrdersList
+   - הוספת סקשן הזמנות
+   - הצגת מספר הזמנות
+
+4. תיעוד:
+   - README.md - הוספת מידע על ניהול הזמנות
+   - ORDERS_DOCUMENTATION.md - תיעוד מפורט
+
+תכונות:
+--------
+ שליפה אוטומטית של הזמנות בצפייה בלקוח
+ תמיכה בפורמט חדש וישן
+ מחיקה אוטומטית של הזמנות עם הלקוח
+ תצוגה נוחה וברורה
+ ביצועים טובים (שליפה במקביל)
+
+שימוש:
+-------
+const customer = await fetchCustomerById(customerId);
+console.log(customer.orders); // כל ההזמנות

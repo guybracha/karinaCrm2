@@ -92,12 +92,34 @@ function normalizeSteps(steps) {
   }));
 }
 
+function normalizeOrderItem(item) {
+  if (!item) return null;
+  return {
+    productId: item.productId || item.id || '',
+    productName: item.productName || item.name || '',
+    qty: item.qty || 0,
+    unitPrice: item.unitPrice || item.price || 0,
+    color: item.color || '',
+    colorHex: item.colorHex || item.colorCode || '',
+    sizes: item.sizes || {}, // { "S": 2, "M": 5, "L": 3 }
+    notes: item.notes || '',
+  };
+}
+
 function mapOrderDoc(orderDoc) {
   const data = typeof orderDoc.data === 'function' ? orderDoc.data() : orderDoc;
+  const items = Array.isArray(data.items) 
+    ? data.items.map(normalizeOrderItem).filter(Boolean)
+    : [];
+  
   return {
     id: orderDoc.id || data.id,
-    userId: data.userId,
+    userId: data.userId || data.customer?.uid, // תמיכה בפורמט חדש וישן
+    customer: data.customer, // שמירת כל פרטי הלקוח
     status: data.status || 'draft',
+    items, // פריטי ההזמנה מנורמלים
+    shipping: data.shipping, // פרטי משלוח
+    notes: data.notes || '',
     createdAt: normalizeDate(data.createdAt),
     updatedAt: normalizeDate(data.updatedAt),
     graphics: normalizeGraphics(data.graphics),
@@ -161,26 +183,78 @@ async function getOrderForUser(userId) {
 
 async function runOrdersQueryForUser(userId) {
   if (!userId) {
+    console.log('[runOrdersQueryForUser] No userId provided');
     return [];
   }
+  console.log(`[runOrdersQueryForUser] Fetching orders for user: ${userId}`);
   const baseRef = collection(db, ORDERS_COLLECTION);
+  
+  // ננסה מספר אסטרטגיות לחיפוש
   try {
-    const ordersQuery = query(
-      baseRef,
-      where('userId', '==', userId),
-      orderBy('updatedAt', 'desc'),
-    );
-    const snapshot = await getDocs(ordersQuery);
-    return snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
-  } catch (error) {
-    if (error.code !== 'failed-precondition') {
-      throw error;
+    // אסטרטגיה 1: חיפוש לפי customer.uid עם orderBy
+    try {
+      const ordersQuery = query(
+        baseRef,
+        where('customer.uid', '==', userId),
+        orderBy('updatedAt', 'desc'),
+      );
+      const snapshot = await getDocs(ordersQuery);
+      console.log(`[runOrdersQueryForUser] Found ${snapshot.docs.length} orders with customer.uid + orderBy`);
+      if (!snapshot.empty) {
+        return snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+      }
+    } catch (innerError) {
+      console.log('[runOrdersQueryForUser] customer.uid + orderBy failed:', innerError.message);
     }
-    const fallbackQuery = query(baseRef, where('userId', '==', userId));
-    const snapshot = await getDocs(fallbackQuery);
-    return snapshot.docs
-      .map((docSnap) => mapOrderDoc(docSnap))
-      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+    
+    // אסטרטגיה 2: חיפוש לפי customer.uid בלי orderBy
+    try {
+      const ordersQuery = query(
+        baseRef,
+        where('customer.uid', '==', userId),
+      );
+      const snapshot = await getDocs(ordersQuery);
+      console.log(`[runOrdersQueryForUser] Found ${snapshot.docs.length} orders with customer.uid (no orderBy)`);
+      if (!snapshot.empty) {
+        return snapshot.docs
+          .map((docSnap) => mapOrderDoc(docSnap))
+          .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+      }
+    } catch (innerError) {
+      console.log('[runOrdersQueryForUser] customer.uid failed:', innerError.message);
+    }
+    
+    // אסטרטגיה 3: fallback לפורמט ישן עם userId + orderBy
+    try {
+      const fallbackQuery = query(
+        baseRef,
+        where('userId', '==', userId),
+        orderBy('updatedAt', 'desc'),
+      );
+      const fallbackSnapshot = await getDocs(fallbackQuery);
+      console.log(`[runOrdersQueryForUser] Found ${fallbackSnapshot.docs.length} orders with userId + orderBy`);
+      if (!fallbackSnapshot.empty) {
+        return fallbackSnapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+      }
+    } catch (innerError) {
+      console.log('[runOrdersQueryForUser] userId + orderBy failed:', innerError.message);
+    }
+    
+    // אסטרטגיה 4: fallback לפורמט ישן עם userId בלי orderBy
+    try {
+      const fallbackQuery = query(baseRef, where('userId', '==', userId));
+      const fallbackSnapshot = await getDocs(fallbackQuery);
+      console.log(`[runOrdersQueryForUser] Found ${fallbackSnapshot.docs.length} orders with userId (no orderBy)`);
+      return fallbackSnapshot.docs
+        .map((docSnap) => mapOrderDoc(docSnap))
+        .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+    } catch (innerError) {
+      console.log('[runOrdersQueryForUser] userId failed:', innerError.message);
+      return [];
+    }
+  } catch (error) {
+    console.error('[runOrdersQueryForUser] Error fetching orders:', error);
+    return [];
   }
 }
 
@@ -317,11 +391,16 @@ export async function fetchCustomerById(id) {
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
   const firestoreGraphics = normalizeGraphics(data.graphics);
   
-  // טעינת תמונות מ-Storage במקביל (לא חוסם)
+  // טעינת תמונות מ-Storage והזמנות במקביל (לא חוסם)
   const firebaseUid = data.firebaseUid || id;
   const storageGraphicsPromise = fetchCustomerGraphicsFromStorage(firebaseUid).catch(() => []);
+  const ordersPromise = runOrdersQueryForUser(id).catch(() => []);
   
   const mapped = mapToCustomer(snapshot, null);
+  
+  // טעינת הזמנות במקביל
+  const orders = await ordersPromise;
+  console.log(`[fetchCustomerById] Customer ${id} has ${orders.length} orders:`, orders);
   
   // אם יש תמונות ב-Firestore, נחזיר מיד, אחרת נחכה ל-Storage
   if (firestoreGraphics.length > 0) {
@@ -335,7 +414,8 @@ export async function fetchCustomerById(id) {
         ).sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
       }
     });
-    return { ...mapped, tasks, graphics: firestoreGraphics };
+    console.log(`[fetchCustomerById] Returning customer with ${orders.length} orders`);
+    return { ...mapped, tasks, graphics: firestoreGraphics, orders };
   }
   
   // אין תמונות ב-Firestore, נחכה ל-Storage
@@ -348,7 +428,8 @@ export async function fetchCustomerById(id) {
       })
     : [];
   
-  return { ...mapped, tasks, graphics };
+  console.log(`[fetchCustomerById] Returning customer with ${orders.length} orders (no Firestore graphics)`);
+  return { ...mapped, tasks, graphics, orders };
 }
 
 export async function createCustomer(data) {
@@ -541,16 +622,28 @@ export async function deleteCustomer(customerId) {
   try {
     console.log('מוחק לקוח:', customerId);
 
-    // מחיקת כל ההזמנות של הלקוח
-    const ordersQuery = query(
+    // מחיקת כל ההזמנות של הלקוח (פורמט חדש)
+    const newFormatQuery = query(
+      collection(db, ORDERS_COLLECTION),
+      where('customer.uid', '==', customerId)
+    );
+    const newFormatSnapshot = await getDocs(newFormatQuery);
+    
+    // מחיקת הזמנות בפורמט ישן
+    const oldFormatQuery = query(
       collection(db, ORDERS_COLLECTION),
       where('userId', '==', customerId)
     );
-    const ordersSnapshot = await getDocs(ordersQuery);
+    const oldFormatSnapshot = await getDocs(oldFormatQuery);
     
-    const deletePromises = ordersSnapshot.docs.map((orderDoc) =>
-      deleteDoc(doc(db, ORDERS_COLLECTION, orderDoc.id))
-    );
+    const deletePromises = [
+      ...newFormatSnapshot.docs.map((orderDoc) =>
+        deleteDoc(doc(db, ORDERS_COLLECTION, orderDoc.id))
+      ),
+      ...oldFormatSnapshot.docs.map((orderDoc) =>
+        deleteDoc(doc(db, ORDERS_COLLECTION, orderDoc.id))
+      ),
+    ];
     
     await Promise.all(deletePromises);
     console.log(`נמחקו ${deletePromises.length} הזמנות`);
@@ -564,3 +657,10 @@ export async function deleteCustomer(customerId) {
   }
 }
 
+// ייצוא פונקציה לשליפת הזמנות של לקוח ספציפי
+export async function fetchCustomerOrders(customerId) {
+  if (!customerId) {
+    return [];
+  }
+  return runOrdersQueryForUser(customerId);
+}

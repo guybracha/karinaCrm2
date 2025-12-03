@@ -8,6 +8,7 @@ import {
 } from '../lib/customersApi';
 import GraphicsList from './GraphicsList';
 import TaskBoard from './TaskBoard';
+import OrdersList from './OrdersList';
 
 export default function CustomerDetails({ customerId }) {
   const [customer, setCustomer] = useState(null);
@@ -28,6 +29,8 @@ export default function CustomerDetails({ customerId }) {
       setError(null);
       try {
         const data = await fetchCustomerById(customerId);
+        console.log('[CustomerDetails] Loaded customer:', data);
+        console.log('[CustomerDetails] Orders:', data?.orders);
         if (isMounted) {
           setCustomer(data);
         }
@@ -204,6 +207,11 @@ export default function CustomerDetails({ customerId }) {
           disabled={updatingGraphics}
           folderId={customer.firebaseUid || customer.id}
         />
+      </section>
+
+      <section>
+        <h3>הזמנות ({customer.orders?.length || 0})</h3>
+        <OrdersList orders={customer.orders || []} />
       </section>
 
       <section>
