@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import CustomerDetails from './components/CustomerDetails';
 import CustomerList from './components/CustomerList';
 import LoginPanel from './components/LoginPanel';
+import OrderNotifications from './components/OrderNotifications';
 import { onAuthStateChanged, signOutUser } from './lib/auth';
 import './App.css';
 
@@ -35,6 +36,9 @@ function App() {
 
   return (
     <div className="app" dir="rtl">
+      {/* התרעות על הזמנות חדשות - פועל רק כשהמשתמש מחובר */}
+      {user && <OrderNotifications />}
+      
       <header className="app-header">
         <div>
           <h1>Karina CRM</h1>

@@ -114,7 +114,7 @@ function mapOrderDoc(orderDoc) {
   
   return {
     id: orderDoc.id || data.id,
-    userId: data.userId || data.customer?.uid, // תמיכה בפורמט חדש וישן
+    userId: data.userId || data.uid || data.customer?.uid, // תמיכה בכל הפורמטים: userId, uid, customer.uid
     customer: data.customer, // שמירת כל פרטי הלקוח
     status: data.status || 'draft',
     items, // פריטי ההזמנה מנורמלים
@@ -191,7 +191,40 @@ async function runOrdersQueryForUser(userId) {
   
   // ננסה מספר אסטרטגיות לחיפוש
   try {
-    // אסטרטגיה 1: חיפוש לפי customer.uid עם orderBy
+    // אסטרטגיה 1: חיפוש לפי uid ישירות (פורמט חדש) עם orderBy
+    try {
+      const ordersQuery = query(
+        baseRef,
+        where('uid', '==', userId),
+        orderBy('updatedAt', 'desc'),
+      );
+      const snapshot = await getDocs(ordersQuery);
+      console.log(`[runOrdersQueryForUser] Found ${snapshot.docs.length} orders with uid + orderBy`);
+      if (!snapshot.empty) {
+        return snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+      }
+    } catch (innerError) {
+      console.log('[runOrdersQueryForUser] uid + orderBy failed:', innerError.message);
+    }
+    
+    // אסטרטגיה 2: חיפוש לפי uid ישירות בלי orderBy
+    try {
+      const ordersQuery = query(
+        baseRef,
+        where('uid', '==', userId),
+      );
+      const snapshot = await getDocs(ordersQuery);
+      console.log(`[runOrdersQueryForUser] Found ${snapshot.docs.length} orders with uid (no orderBy)`);
+      if (!snapshot.empty) {
+        return snapshot.docs
+          .map((docSnap) => mapOrderDoc(docSnap))
+          .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+      }
+    } catch (innerError) {
+      console.log('[runOrdersQueryForUser] uid failed:', innerError.message);
+    }
+    
+    // אסטרטגיה 3: חיפוש לפי customer.uid עם orderBy
     try {
       const ordersQuery = query(
         baseRef,
@@ -207,7 +240,7 @@ async function runOrdersQueryForUser(userId) {
       console.log('[runOrdersQueryForUser] customer.uid + orderBy failed:', innerError.message);
     }
     
-    // אסטרטגיה 2: חיפוש לפי customer.uid בלי orderBy
+    // אסטרטגיה 4: חיפוש לפי customer.uid בלי orderBy
     try {
       const ordersQuery = query(
         baseRef,
@@ -224,7 +257,7 @@ async function runOrdersQueryForUser(userId) {
       console.log('[runOrdersQueryForUser] customer.uid failed:', innerError.message);
     }
     
-    // אסטרטגיה 3: fallback לפורמט ישן עם userId + orderBy
+    // אסטרטגיה 5: fallback לפורמט ישן עם userId + orderBy
     try {
       const fallbackQuery = query(
         baseRef,
@@ -240,7 +273,7 @@ async function runOrdersQueryForUser(userId) {
       console.log('[runOrdersQueryForUser] userId + orderBy failed:', innerError.message);
     }
     
-    // אסטרטגיה 4: fallback לפורמט ישן עם userId בלי orderBy
+    // אסטרטגיה 6: fallback לפורמט ישן עם userId בלי orderBy
     try {
       const fallbackQuery = query(baseRef, where('userId', '==', userId));
       const fallbackSnapshot = await getDocs(fallbackQuery);
@@ -663,4 +696,163 @@ export async function fetchCustomerOrders(customerId) {
     return [];
   }
   return runOrdersQueryForUser(customerId);
+}
+
+// שליפת כל ההזמנות ממסד הנתונים וממוינות לפי UID של המשתמש
+export async function fetchAllOrdersSortedByUser() {
+  if (isTestEnv) {
+    // במצב טסט, מחזירים מהזיכרון
+    return Array.from(memoryStore.orders.values())
+      .sort((a, b) => {
+        const uidA = (a.userId || '').toLowerCase();
+        const uidB = (b.userId || '').toLowerCase();
+        return uidA.localeCompare(uidB);
+      });
+  }
+
+  try {
+    console.log('[fetchAllOrdersSortedByUser] Fetching all orders from orders_prod');
+    
+    // ננסה למיין לפי uid (הפורמט החדש)
+    try {
+      const ordersQuery = query(
+        collection(db, ORDERS_COLLECTION),
+        orderBy('uid', 'asc')
+      );
+      const snapshot = await getDocs(ordersQuery);
+      console.log(`[fetchAllOrdersSortedByUser] Found ${snapshot.docs.length} orders with uid orderBy`);
+      if (snapshot.docs.length > 0) {
+        return snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+      }
+    } catch (uidError) {
+      console.log('[fetchAllOrdersSortedByUser] orderBy uid failed:', uidError.message);
+    }
+    
+    // אם נכשל, ננסה למיין לפי userId (פורמט ישן)
+    try {
+      const ordersQuery = query(
+        collection(db, ORDERS_COLLECTION),
+        orderBy('userId', 'asc')
+      );
+      const snapshot = await getDocs(ordersQuery);
+      console.log(`[fetchAllOrdersSortedByUser] Found ${snapshot.docs.length} orders with userId orderBy`);
+      if (snapshot.docs.length > 0) {
+        return snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+      }
+    } catch (userIdError) {
+      console.log('[fetchAllOrdersSortedByUser] orderBy userId failed:', userIdError.message);
+    }
+    
+    // אם orderBy נכשל לגמרי, נשלוף הכל ונמיין בצד הלקוח
+    console.log('[fetchAllOrdersSortedByUser] Fetching all orders without orderBy');
+    const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
+    console.log(`[fetchAllOrdersSortedByUser] Found ${snapshot.docs.length} orders (no orderBy)`);
+    
+    const orders = snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+    
+    // מיון לפי userId בצד הלקוח
+    return orders.sort((a, b) => {
+      const uidA = (a.userId || '').toLowerCase();
+      const uidB = (b.userId || '').toLowerCase();
+      return uidA.localeCompare(uidB);
+    });
+  } catch (error) {
+    console.error('[fetchAllOrdersSortedByUser] Error fetching orders:', error);
+    return [];
+  }
+}
+
+// מעקב אחר הזמנות חדשות בזמן אמת
+export function subscribeToNewOrders(onNewOrder, onError) {
+  if (isTestEnv) {
+    console.log('[subscribeToNewOrders] Test mode - no real-time subscription');
+    return () => {};
+  }
+
+  let lastOrderCount = 0;
+  const existingOrderIds = new Set();
+
+  // שליפת ההזמנות הקיימות כדי לא להתריע עליהן
+  getDocs(collection(db, ORDERS_COLLECTION))
+    .then((snapshot) => {
+      snapshot.docs.forEach((doc) => {
+        existingOrderIds.add(doc.id);
+      });
+      lastOrderCount = snapshot.size;
+      console.log(`[subscribeToNewOrders] Initialized with ${lastOrderCount} existing orders`);
+    })
+    .catch((error) => {
+      console.error('[subscribeToNewOrders] Error fetching initial orders:', error);
+    });
+
+  // האזנה לשינויים בזמן אמת
+  const ordersRef = collection(db, ORDERS_COLLECTION);
+  const q = query(ordersRef, orderBy('createdAt', 'desc'));
+
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const orderId = change.doc.id;
+          
+          // בדיקה אם זו הזמנה חדשה באמת (לא חלק מהטעינה הראשונית)
+          if (!existingOrderIds.has(orderId)) {
+            const order = mapOrderDoc(change.doc);
+            console.log('[subscribeToNewOrders] New order detected:', order);
+            
+            // קריאה ל-callback עם פרטי ההזמנה החדשה
+            if (onNewOrder && typeof onNewOrder === 'function') {
+              onNewOrder(order);
+            }
+          }
+          
+          // הוספת ההזמנה לרשימה הקיימת
+          existingOrderIds.add(orderId);
+        }
+      });
+      
+      lastOrderCount = snapshot.size;
+    },
+    (error) => {
+      console.error('[subscribeToNewOrders] Error in snapshot listener:', error);
+      if (onError && typeof onError === 'function') {
+        onError(error);
+      }
+    }
+  );
+
+  return unsubscribe;
+}
+
+// פונקציה להצגת התרעה (ניתן להתאים למערכת ההתרעות שלך)
+export function showOrderNotification(order) {
+  // אם הדפדפן תומך בהתרעות
+  if ('Notification' in window && Notification.permission === 'granted') {
+    const customerName = order.customer?.displayName || 'לקוח';
+    const orderTotal = order.totals?.grandTotal || 0;
+    
+    new Notification('הזמנה חדשה התקבלה! 🎉', {
+      body: `${customerName} - ₪${orderTotal}\nמספר הזמנה: ${order.id}`,
+      icon: '/logo192.png', // התאם לנתיב הלוגו שלך
+      tag: `order-${order.id}`,
+      requireInteraction: true, // ההתרעה תישאר עד שהמשתמש יקליק עליה
+    });
+  }
+  
+  // אפשר גם להוסיף התרעה חזותית בממשק
+  console.log('🔔 הזמנה חדשה:', order);
+}
+
+// פונקציה לבקש הרשאה להתרעות
+export async function requestNotificationPermission() {
+  if ('Notification' in window) {
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      console.log('[Notifications] Permission:', permission);
+      return permission === 'granted';
+    }
+    return Notification.permission === 'granted';
+  }
+  return false;
 }
