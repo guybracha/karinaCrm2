@@ -95,13 +95,21 @@ function normalizeSteps(steps) {
 function normalizeOrderItem(item) {
   if (!item) return null;
   return {
-    productId: item.productId || item.id || '',
+    productId: item.productId || item.id || item.slug || '',
     productName: item.productName || item.name || '',
     qty: item.qty || 0,
-    unitPrice: item.unitPrice || item.price || 0,
+    unitPrice: item.unitPrice || item.price || item.baseUnit || 0,
+    price: item.price || item.baseUnit || 0, // מחיר בסיס
+    baseUnit: item.baseUnit || item.price || 0,
+    unitAfter: item.unitAfter || item.price || item.baseUnit || 0, // מחיר אחרי הנחה
+    lineTotal: item.lineTotal || 0, // סכום כולל של השורה
     color: item.color || '',
     colorHex: item.colorHex || item.colorCode || '',
     sizes: item.sizes || {}, // { "S": 2, "M": 5, "L": 3 }
+    sizeSplit: item.sizeSplit || [], // פירוט מידות עם צבעים [{ size: "2XL", color: "שחור", qty: 2 }]
+    variants: item.variants || null, // { byColorSize: {...}, colorTotals: {...}, sizeTotals: {...} }
+    discountPct: item.discountPct || 0,
+    saved: item.saved || 0,
     notes: item.notes || '',
   };
 }

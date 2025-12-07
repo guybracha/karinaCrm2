@@ -444,34 +444,105 @@ export default function OrdersList({ orders = [] }) {
                           </div>
                         )}
                         
-                        {item.color && (
-                          <div className="item-detail-row">
-                            <span className="item-detail-label">צבע:</span>
-                            <div className="color-badge">
-                              {item.colorHex && (
-                                <span 
-                                  className="color-preview" 
-                                  style={{ backgroundColor: item.colorHex }}
-                                  title={item.color}
-                                ></span>
-                              )}
-                              <span>{item.color}</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {item.unitPrice && (
+                        {/* תצוגת מחיר יחידה */}
+                        {unitPrice > 0 && (
                           <div className="item-detail-row">
                             <span className="item-detail-label">מחיר יחידה:</span>
-                            <span className="item-detail-value">₪{item.unitPrice.toFixed(2)}</span>
+                            <span className="item-detail-value">₪{unitPrice.toFixed(2)}</span>
                           </div>
                         )}
                         
-                        {item.sizes && Object.keys(item.sizes).length > 0 ? (
+                        {/* תצוגת מידות וצבעים - תמיכה בפורמטים שונים */}
+                        {item.sizeSplit && Array.isArray(item.sizeSplit) && item.sizeSplit.length > 0 ? (
+                          <div>
+                            <div className="item-detail-label" style={{ marginBottom: '0.5rem' }}>
+                              כמויות לפי מידות וצבעים:
+                            </div>
+                            <div className="sizes-grid">
+                              {item.sizeSplit.map((split, splitIdx) => (
+                                <div key={splitIdx} className="size-badge" style={{ 
+                                  flexDirection: 'column', 
+                                  alignItems: 'start',
+                                  minWidth: '120px'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                    <span className="size-label">{split.size}</span>
+                                    <span className="size-qty">×{split.qty}</span>
+                                  </div>
+                                  {split.color && (
+                                    <div style={{ 
+                                      fontSize: '0.75rem', 
+                                      color: '#6c757d',
+                                      marginTop: '0.25rem',
+                                      width: '100%'
+                                    }}>
+                                      {split.color}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="item-detail-row" style={{ marginTop: '0.5rem' }}>
+                              <span className="item-detail-label">סה"כ:</span>
+                              <span className="item-detail-value" style={{ fontWeight: 600 }}>
+                                {totalQty} יחידות
+                              </span>
+                            </div>
+                          </div>
+                        ) : item.variants?.byColorSize && Object.keys(item.variants.byColorSize).length > 0 ? (
+                          <div>
+                            <div className="item-detail-label" style={{ marginBottom: '0.5rem' }}>
+                              כמויות לפי צבע ומידה:
+                            </div>
+                            {Object.entries(item.variants.byColorSize).map(([color, sizes]) => (
+                              <div key={color} style={{ marginBottom: '0.75rem' }}>
+                                <div style={{ 
+                                  fontSize: '0.85rem', 
+                                  fontWeight: 600, 
+                                  color: '#495057',
+                                  marginBottom: '0.25rem'
+                                }}>
+                                  {color}
+                                </div>
+                                <div className="sizes-grid">
+                                  {Object.entries(sizes)
+                                    .filter(([_, qty]) => qty > 0)
+                                    .map(([size, qty]) => (
+                                      <div key={size} className="size-badge">
+                                        <span className="size-label">{size}</span>
+                                        <span className="size-qty">×{qty}</span>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            ))}
+                            <div className="item-detail-row" style={{ marginTop: '0.5rem' }}>
+                              <span className="item-detail-label">סה"כ:</span>
+                              <span className="item-detail-value" style={{ fontWeight: 600 }}>
+                                {totalQty} יחידות
+                              </span>
+                            </div>
+                          </div>
+                        ) : item.sizes && Object.keys(item.sizes).length > 0 ? (
                           <div>
                             <div className="item-detail-label" style={{ marginBottom: '0.5rem' }}>
                               כמויות לפי מידות:
                             </div>
+                            {item.color && (
+                              <div className="item-detail-row" style={{ marginBottom: '0.5rem' }}>
+                                <span className="item-detail-label">צבע:</span>
+                                <div className="color-badge">
+                                  {item.colorHex && (
+                                    <span 
+                                      className="color-preview" 
+                                      style={{ backgroundColor: item.colorHex }}
+                                      title={item.color}
+                                    ></span>
+                                  )}
+                                  <span>{item.color}</span>
+                                </div>
+                              </div>
+                            )}
                             <div className="sizes-grid">
                               {Object.entries(item.sizes)
                                 .filter(([_, qty]) => qty > 0)
@@ -490,12 +561,29 @@ export default function OrdersList({ orders = [] }) {
                             </div>
                           </div>
                         ) : (
-                          <div className="item-detail-row">
-                            <span className="item-detail-label">כמות:</span>
-                            <span className="item-detail-value" style={{ fontWeight: 600 }}>
-                              {item.qty || 0} יחידות
-                            </span>
-                          </div>
+                          <>
+                            {item.color && (
+                              <div className="item-detail-row">
+                                <span className="item-detail-label">צבע:</span>
+                                <div className="color-badge">
+                                  {item.colorHex && (
+                                    <span 
+                                      className="color-preview" 
+                                      style={{ backgroundColor: item.colorHex }}
+                                      title={item.color}
+                                    ></span>
+                                  )}
+                                  <span>{item.color}</span>
+                                </div>
+                              </div>
+                            )}
+                            <div className="item-detail-row">
+                              <span className="item-detail-label">כמות:</span>
+                              <span className="item-detail-value" style={{ fontWeight: 600 }}>
+                                {item.qty || 0} יחידות
+                              </span>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
