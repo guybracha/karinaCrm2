@@ -703,8 +703,8 @@ export default function OrdersList({ orders = [] }) {
                 <div style={{ marginTop: '1rem' }}>
                   <div className="order-logos-title">🏷️ לוגואים לפי מוצר:</div>
                   {Object.entries(order.logos.byItemFromCart).map(([itemId, positions]) => {
-                    const item = order.items?.find(i => i.productId === itemId);
-                    const itemName = item?.productName || itemId;
+                    const item = order.items?.find(i => i.id === itemId || i.productId === itemId || i.slug === itemId);
+                    const itemName = item?.name || item?.productName || itemId;
                     
                     return (
                       <div key={itemId} style={{ marginBottom: '1rem' }}>
@@ -720,42 +720,80 @@ export default function OrdersList({ orders = [] }) {
                           {itemName}
                         </div>
                         <div className="logos-grid">
-                          {positions.front && (
-                            <div className="logo-item">
-                              <img 
-                                src={positions.front} 
-                                alt="לוגו חזית"
-                                className="logo-preview"
-                              />
-                              <div className="logo-label">חזית</div>
-                              <a 
-                                href={positions.front} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="logo-link"
-                              >
-                                פתח קובץ
-                              </a>
-                            </div>
-                          )}
-                          {positions.back && (
-                            <div className="logo-item">
-                              <img 
-                                src={positions.back} 
-                                alt="לוגו גב"
-                                className="logo-preview"
-                              />
-                              <div className="logo-label">גב</div>
-                              <a 
-                                href={positions.back} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="logo-link"
-                              >
-                                פתח קובץ
-                              </a>
-                            </div>
-                          )}
+                          {positions.front && (() => {
+                            // תמיכה בפורמטים שונים של הלוגו
+                            const logoData = typeof positions.front === 'string' 
+                              ? { url: positions.front }
+                              : positions.front;
+                            const logoUrl = logoData.webpUrl || logoData.originalUrl || logoData.url || logoData.fileUrl || '';
+                            
+                            if (!logoUrl) return null;
+                            
+                            return (
+                              <div className="logo-item">
+                                <img 
+                                  src={logoUrl} 
+                                  alt="לוגו חזית"
+                                  className="logo-preview"
+                                  onError={(e) => {
+                                    // אם WebP נכשל, נסה את ה-original
+                                    if (logoData.originalUrl && e.target.src !== logoData.originalUrl) {
+                                      e.target.src = logoData.originalUrl;
+                                    } else {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling?.nextSibling && (e.target.nextSibling.nextSibling.textContent = '❌ שגיאה בטעינה');
+                                    }
+                                  }}
+                                />
+                                <div className="logo-label">חזית</div>
+                                <a 
+                                  href={logoUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="logo-link"
+                                >
+                                  פתח קובץ
+                                </a>
+                              </div>
+                            );
+                          })()}
+                          {positions.back && (() => {
+                            // תמיכה בפורמטים שונים של הלוגו
+                            const logoData = typeof positions.back === 'string' 
+                              ? { url: positions.back }
+                              : positions.back;
+                            const logoUrl = logoData.webpUrl || logoData.originalUrl || logoData.url || logoData.fileUrl || '';
+                            
+                            if (!logoUrl) return null;
+                            
+                            return (
+                              <div className="logo-item">
+                                <img 
+                                  src={logoUrl} 
+                                  alt="לוגו גב"
+                                  className="logo-preview"
+                                  onError={(e) => {
+                                    // אם WebP נכשל, נסה את ה-original
+                                    if (logoData.originalUrl && e.target.src !== logoData.originalUrl) {
+                                      e.target.src = logoData.originalUrl;
+                                    } else {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling?.nextSibling && (e.target.nextSibling.nextSibling.textContent = '❌ שגיאה בטעינה');
+                                    }
+                                  }}
+                                />
+                                <div className="logo-label">גב</div>
+                                <a 
+                                  href={logoUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="logo-link"
+                                >
+                                  פתח קובץ
+                                </a>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
