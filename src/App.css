@@ -26,12 +26,13 @@
 .app-header {
   background: var(--white);
   border-bottom: 1px solid var(--border);
-  padding: 1.75rem 2rem;
+  padding: 1.5rem 2rem;
   box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
+  flex-wrap: wrap;
 }
 
 .app-header h1 {
@@ -44,14 +45,67 @@
   margin: 0.25rem 0 0;
   color: var(--subtext);
   text-align: right;
+  font-size: 0.9rem;
 }
 
 .app-main {
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 1.5rem;
-  padding: 1.5rem;
+  padding: 0;
   flex: 1;
+  overflow: hidden;
+}
+
+/* תמיכה בטאבים */
+.tabs-container {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem 0 1.5rem;
+  background: var(--bg);
+  border-bottom: 2px solid var(--border);
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #6c757d;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tab-btn:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.tab-btn.active {
+  background: white;
+  color: #007bff;
+  border-color: #007bff;
+  border-bottom-color: white;
+  position: relative;
+  bottom: -2px;
+  z-index: 1;
+}
+
+.full-panel {
+  grid-column: 1 / -1;
+  overflow-y: auto;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .auth-panel {
@@ -142,6 +196,17 @@
   padding: 1.25rem;
   box-shadow: 0 15px 45px rgba(10, 12, 18, 0.08);
   overflow: hidden;
+  margin: 1.5rem;
+}
+
+.left-panel {
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.right-panel {
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
 }
 
 .customer-panel {
@@ -768,6 +833,25 @@ button.ghost:hover {
 @media (max-width: 1024px) {
   .app-main {
     grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .tabs-container {
+    padding: 1rem 1rem 0 1rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .tab-btn {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  .left-panel,
+  .right-panel {
+    margin: 1rem;
+    max-height: none;
   }
 
   .customer-list {
@@ -777,9 +861,111 @@ button.ghost:hover {
   .task-columns {
     grid-template-columns: 1fr;
   }
+
+  .app-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .user-box {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .app-header p {
+    font-size: 0.8rem;
+  }
+
+  .tabs-container {
+    gap: 0.25rem;
+    padding: 0.75rem 0.75rem 0 0.75rem;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .left-panel,
+  .right-panel {
+    padding: 1rem;
+    margin: 0.75rem;
+    border-radius: 0.75rem;
+  }
+
+  .customer-list-item {
+    padding: 0.75rem;
+  }
+
+  .customer-details-tabs {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .customer-tab {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .user-box {
+    font-size: 0.85rem;
+  }
+
+  .user-box button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
 }
 
 @media (max-width: 640px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.75rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.1rem;
+  }
+
+  .user-box {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .tabs-container {
+    padding: 0.5rem 0.5rem 0 0.5rem;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    gap: 0.25rem;
+  }
+
+  .left-panel,
+  .right-panel {
+    padding: 0.75rem;
+    margin: 0.5rem;
+    border-radius: 0.5rem;
+  }
+
   .crm-modal-backdrop {
     padding: 0.5rem;
   }
@@ -788,10 +974,31 @@ button.ghost:hover {
     width: 100%;
     border-radius: 0.75rem;
     max-height: 100vh;
+    padding: 1rem;
   }
 
   .form-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .customer-details-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .customer-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .orders-filters .status-filters {
+    flex-direction: column;
+  }
+
+  .status-filter-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

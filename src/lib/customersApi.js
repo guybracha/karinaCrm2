@@ -724,6 +724,7 @@ export async function fetchAllOrdersSortedByUser() {
     console.log('[fetchAllOrdersSortedByUser] Fetching all orders from orders_prod');
     
     // ננסה למיין לפי uid (הפורמט החדש)
+    let orders = [];
     try {
       const ordersQuery = query(
         collection(db, ORDERS_COLLECTION),
@@ -732,40 +733,73 @@ export async function fetchAllOrdersSortedByUser() {
       const snapshot = await getDocs(ordersQuery);
       console.log(`[fetchAllOrdersSortedByUser] Found ${snapshot.docs.length} orders with uid orderBy`);
       if (snapshot.docs.length > 0) {
-        return snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+        orders = snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
       }
     } catch (uidError) {
       console.log('[fetchAllOrdersSortedByUser] orderBy uid failed:', uidError.message);
     }
     
     // אם נכשל, ננסה למיין לפי userId (פורמט ישן)
-    try {
-      const ordersQuery = query(
-        collection(db, ORDERS_COLLECTION),
-        orderBy('userId', 'asc')
-      );
-      const snapshot = await getDocs(ordersQuery);
-      console.log(`[fetchAllOrdersSortedByUser] Found ${snapshot.docs.length} orders with userId orderBy`);
-      if (snapshot.docs.length > 0) {
-        return snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+    if (orders.length === 0) {
+      try {
+        const ordersQuery = query(
+          collection(db, ORDERS_COLLECTION),
+          orderBy('userId', 'asc')
+        );
+        const snapshot = await getDocs(ordersQuery);
+        console.log(`[fetchAllOrdersSortedByUser] Found ${snapshot.docs.length} orders with userId orderBy`);
+        if (snapshot.docs.length > 0) {
+          orders = snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+        }
+      } catch (userIdError) {
+        console.log('[fetchAllOrdersSortedByUser] orderBy userId failed:', userIdError.message);
       }
-    } catch (userIdError) {
-      console.log('[fetchAllOrdersSortedByUser] orderBy userId failed:', userIdError.message);
     }
     
     // אם orderBy נכשל לגמרי, נשלוף הכל ונמיין בצד הלקוח
-    console.log('[fetchAllOrdersSortedByUser] Fetching all orders without orderBy');
-    const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
-    console.log(`[fetchAllOrdersSortedByUser] Found ${snapshot.docs.length} orders (no orderBy)`);
+    if (orders.length === 0) {
+      console.log('[fetchAllOrdersSortedByUser] Fetching all orders without orderBy');
+      const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
+      console.log(`[fetchAllOrdersSortedByUser] Found ${snapshot.docs.length} orders (no orderBy)`);
+      
+      orders = snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+      
+      // מיון לפי userId בצד הלקוח
+      orders.sort((a, b) => {
+        const uidA = (a.userId || '').toLowerCase();
+        const uidB = (b.userId || '').toLowerCase();
+        return uidA.localeCompare(uidB);
+      });
+    }
     
-    const orders = snapshot.docs.map((docSnap) => mapOrderDoc(docSnap));
+    // עכשיו נטען את פרטי הלקוחות לכל ההזמנות
+    console.log('[fetchAllOrdersSortedByUser] Loading customer details for orders');
+    const userIds = [...new Set(orders.map(order => order.userId).filter(Boolean))];
+    console.log(`[fetchAllOrdersSortedByUser] Found ${userIds.length} unique user IDs`);
     
-    // מיון לפי userId בצד הלקוח
-    return orders.sort((a, b) => {
-      const uidA = (a.userId || '').toLowerCase();
-      const uidB = (b.userId || '').toLowerCase();
-      return uidA.localeCompare(uidB);
-    });
+    // טעינת כל הלקוחות במקביל
+    const customersMap = new Map();
+    await Promise.all(
+      userIds.map(async (userId) => {
+        try {
+          const userDoc = await getDoc(doc(db, USERS_COLLECTION, userId));
+          if (userDoc.exists()) {
+            customersMap.set(userId, userDoc.data());
+          }
+        } catch (error) {
+          console.error(`[fetchAllOrdersSortedByUser] Error loading user ${userId}:`, error);
+        }
+      })
+    );
+    
+    // חיבור פרטי הלקוחות להזמנות
+    orders = orders.map(order => ({
+      ...order,
+      customer: order.customer || customersMap.get(order.userId) || null
+    }));
+    
+    console.log('[fetchAllOrdersSortedByUser] Orders with customer details loaded:', orders);
+    return orders;
   } catch (error) {
     console.error('[fetchAllOrdersSortedByUser] Error fetching orders:', error);
     return [];
@@ -839,11 +873,24 @@ export function subscribeToNewOrders(onNewOrder, onError) {
 export function showOrderNotification(order) {
   // אם הדפדפן תומך בהתרעות
   if ('Notification' in window && Notification.permission === 'granted') {
-    const customerName = order.customer?.displayName || 'לקוח';
-    const orderTotal = order.totals?.grandTotal || 0;
+    // נסה למצוא את שם הלקוח מכל המקורות האפשריים
+    const customerName = 
+      order.customer?.displayName || 
+      order.customer?.name || 
+      order.customer?.firstName || 
+      order.shipping?.address?.firstName || 
+      order.shipping?.address?.name || 
+      (order.shipping?.address?.firstName && order.shipping?.address?.lastName 
+        ? `${order.shipping?.address?.firstName} ${order.shipping?.address?.lastName}` 
+        : null) ||
+      `מספר הזמנה ${order.id.slice(-8)}`;
+    
+    const orderTotal = order.totals?.grandTotal || order.totals?.merchandiseTotal || 0;
     
     new Notification('הזמנה חדשה התקבלה! 🎉', {
-      body: `${customerName} - ₪${orderTotal}\nמספר הזמנה: ${order.id}`,
+      body: orderTotal > 0 
+        ? `${customerName}\nסכום: ₪${orderTotal}\nמספר הזמנה: ${order.id.slice(-8)}`
+        : `${customerName}\nמספר הזמנה: ${order.id.slice(-8)}`,
       icon: '/logo192.png', // התאם לנתיב הלוגו שלך
       tag: `order-${order.id}`,
       requireInteraction: true, // ההתרעה תישאר עד שהמשתמש יקליק עליה

@@ -109,53 +109,77 @@ export default function OrderNotifications() {
 
   return (
     <div style={{ position: 'fixed', top: 20, left: 20, zIndex: 9999 }}>
-      {newOrders.map((order) => (
-        <div
-          key={order.id}
-          style={{
-            background: '#d4edda',
-            border: '1px solid #28a745',
-            borderRadius: 8,
-            padding: '12px 16px',
-            marginBottom: 10,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            maxWidth: 300,
-            animation: 'slideIn 0.3s ease-out',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                🎉 הזמנה חדשה!
-              </div>
-              <div style={{ fontSize: 14, marginBottom: 4 }}>
-                <strong>{order.customer?.displayName || 'לקוח'}</strong>
-              </div>
-              <div style={{ fontSize: 12, color: '#555' }}>
-                מספר הזמנה: {order.id}
-              </div>
-              {order.totals?.grandTotal && (
-                <div style={{ fontSize: 14, marginTop: 4, color: '#28a745', fontWeight: 'bold' }}>
-                  ₪{order.totals.grandTotal}
+      {newOrders.map((order) => {
+        // נסה למצוא את שם הלקוח מכל המקורות האפשריים
+        const customerName = 
+          order.customer?.displayName || 
+          order.customer?.name || 
+          order.customer?.firstName || 
+          order.shipping?.address?.firstName || 
+          order.shipping?.address?.name || 
+          (order.shipping?.address?.firstName && order.shipping?.address?.lastName 
+            ? `${order.shipping?.address?.firstName} ${order.shipping?.address?.lastName}` 
+            : null) ||
+          'לקוח חדש';
+        
+        const orderTotal = order.totals?.grandTotal || order.totals?.merchandiseTotal || 0;
+        const shortOrderId = order.id.slice(-8);
+        
+        return (
+          <div
+            key={order.id}
+            style={{
+              background: '#d4edda',
+              border: '1px solid #28a745',
+              borderRadius: 8,
+              padding: '12px 16px',
+              marginBottom: 10,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              maxWidth: 320,
+              animation: 'slideIn 0.3s ease-out',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 'bold', marginBottom: 6, fontSize: 15 }}>
+                  🎉 הזמנה חדשה התקבלה!
                 </div>
-              )}
+                <div style={{ fontSize: 15, marginBottom: 4, fontWeight: 600, color: '#155724' }}>
+                  👤 {customerName}
+                </div>
+                <div style={{ fontSize: 12, color: '#555', marginBottom: 2 }}>
+                  📦 מספר הזמנה: {shortOrderId}
+                </div>
+                {orderTotal > 0 && (
+                  <div style={{ fontSize: 16, marginTop: 6, color: '#28a745', fontWeight: 'bold' }}>
+                    💰 ₪{orderTotal.toFixed(2)}
+                  </div>
+                )}
+                {order.customer?.phoneNumber && (
+                  <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+                    📞 {order.customer.phoneNumber}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => handleDismiss(order.id)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  padding: 4,
+                  color: '#555',
+                  lineHeight: 1,
+                }}
+                title="סגור"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={() => handleDismiss(order.id)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 18,
-                padding: 4,
-                color: '#555',
-              }}
-            >
-              ✕
-            </button>
           </div>
-        </div>
-      ))}
+        );
+      })}
       
       <style>
         {`

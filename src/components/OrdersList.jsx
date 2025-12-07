@@ -356,28 +356,50 @@ export default function OrdersList({ orders = [] }) {
               <span className="order-detail-label">עדכון אחרון:</span>
               <span className="order-detail-value">{formatDate(order.updatedAt)}</span>
             </div>
-            {order.customer && (
+            
+            {/* פרטי לקוח */}
+            {(order.customer || order.shipping?.address) && (
               <>
-                {order.customer.displayName && (
+                <div className="order-detail-row" style={{ borderTop: '2px solid #e0e0e0', marginTop: 10, paddingTop: 10 }}>
+                  <strong>פרטי לקוח:</strong>
+                </div>
+                {(order.customer?.displayName || order.customer?.name || order.shipping?.address?.firstName) && (
                   <div className="order-detail-row">
-                    <span className="order-detail-label">שם:</span>
-                    <span className="order-detail-value">{order.customer.displayName}</span>
+                    <span className="order-detail-label">👤 שם:</span>
+                    <span className="order-detail-value">
+                      {order.customer?.displayName || 
+                       order.customer?.name || 
+                       (order.shipping?.address?.firstName && order.shipping?.address?.lastName 
+                         ? `${order.shipping.address.firstName} ${order.shipping.address.lastName}`
+                         : order.shipping?.address?.firstName || order.shipping?.address?.name)}
+                    </span>
                   </div>
                 )}
-                {order.customer.phoneNumber && (
+                {(order.customer?.phoneNumber || order.shipping?.address?.phone) && (
                   <div className="order-detail-row">
-                    <span className="order-detail-label">טלפון:</span>
-                    <span className="order-detail-value">{order.customer.phoneNumber}</span>
+                    <span className="order-detail-label">📞 טלפון:</span>
+                    <span className="order-detail-value">
+                      {order.customer?.phoneNumber || order.shipping?.address?.phone}
+                    </span>
                   </div>
                 )}
-                {order.customer.email && (
+                {(order.customer?.email || order.shipping?.address?.email) && (
                   <div className="order-detail-row">
-                    <span className="order-detail-label">אימייל:</span>
-                    <span className="order-detail-value">{order.customer.email}</span>
+                    <span className="order-detail-label">📧 אימייל:</span>
+                    <span className="order-detail-value">
+                      {order.customer?.email || order.shipping?.address?.email}
+                    </span>
+                  </div>
+                )}
+                {order.shipping?.address?.city && (
+                  <div className="order-detail-row">
+                    <span className="order-detail-label">🏙️ עיר:</span>
+                    <span className="order-detail-value">{order.shipping.address.city}</span>
                   </div>
                 )}
               </>
             )}
+            
             {/* פרטי משלוח */}
             {order.shipping && (
               <>
