@@ -75,6 +75,7 @@ export default function OrdersList({ orders = [] }) {
           margin-bottom: 0.75rem;
           padding-bottom: 0.75rem;
           border-bottom: 1px solid #eee;
+          gap: 1rem;
         }
 
         .order-id {
@@ -89,6 +90,31 @@ export default function OrdersList({ orders = [] }) {
           font-size: 0.85rem;
           font-weight: 500;
           color: white;
+        }
+
+        .order-summary-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.4rem 0.8rem;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-decoration: none;
+          border-radius: 6px;
+          font-size: 0.85rem;
+          font-weight: 500;
+          transition: all 0.2s;
+          box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+        }
+
+        .order-summary-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+          background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        .order-summary-btn:active {
+          transform: translateY(0);
         }
 
         .order-details {
@@ -323,13 +349,27 @@ export default function OrdersList({ orders = [] }) {
       {orders.map((order) => (
         <div key={order.id} className="order-card">
           <div className="order-header">
-            <span className="order-id">הזמנה #{order.id.slice(-8)}</span>
-            <span
-              className="order-status"
-              style={{ backgroundColor: getStatusColor(order.status) }}
-            >
-              {getStatusLabel(order.status)}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+              <span className="order-id">הזמנה #{order.id.slice(-8)}</span>
+              <span
+                className="order-status"
+                style={{ backgroundColor: getStatusColor(order.status) }}
+              >
+                {getStatusLabel(order.status)}
+              </span>
+            </div>
+            {/* כפתור לפתיחת מסמך אישור הזמנה */}
+            {order.summaryUrl && (
+              <a
+                href={order.summaryUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="order-summary-btn"
+                title="צפה במסמך אישור הזמנה"
+              >
+                📄 מסמך הזמנה
+              </a>
+            )}
           </div>
 
           <div className="order-details">

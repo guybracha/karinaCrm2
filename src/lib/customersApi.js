@@ -129,6 +129,8 @@ function mapOrderDoc(orderDoc) {
     shipping: data.shipping, // פרטי משלוח
     logos: data.logos, // לוגואים שהועלו עם ההזמנה (uploads, mockups, byItemFromCart)
     totals: data.totals, // סכומים (grandTotal, merchandiseTotal, etc.)
+    summaryUrl: data.summaryUrl, // קישור למסמך אישור הזמנה PDF
+    summaryUpdatedAt: data.summaryUpdatedAt, // מתי נוצר המסמך
     notes: data.notes || '',
     createdAt: normalizeDate(data.createdAt),
     updatedAt: normalizeDate(data.updatedAt),
