@@ -236,6 +236,88 @@ export default function OrdersList({ orders = [] }) {
           font-size: 0.9rem;
           color: #333;
         }
+
+        .order-logos {
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #eee;
+        }
+
+        .order-logos-title {
+          font-weight: 600;
+          margin-bottom: 0.75rem;
+          font-size: 0.9rem;
+          color: #333;
+        }
+
+        .logos-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+
+        .logo-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          background: #f8f9fa;
+          border-radius: 6px;
+          border: 1px solid #dee2e6;
+          transition: all 0.2s;
+        }
+
+        .logo-item:hover {
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          transform: translateY(-2px);
+        }
+
+        .logo-preview {
+          width: 100%;
+          aspect-ratio: 1;
+          object-fit: contain;
+          background: white;
+          border-radius: 4px;
+          border: 1px solid #dee2e6;
+        }
+
+        .logo-label {
+          font-size: 0.75rem;
+          color: #666;
+          text-align: center;
+          word-break: break-word;
+          max-width: 100%;
+        }
+
+        .logo-link {
+          font-size: 0.75rem;
+          color: #007bff;
+          text-decoration: none;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          transition: background 0.2s;
+        }
+
+        .logo-link:hover {
+          background: #e7f3ff;
+          text-decoration: underline;
+        }
+
+        .mockups-section {
+          margin-top: 1rem;
+          padding: 0.75rem;
+          background: #f1f3f5;
+          border-radius: 6px;
+        }
+
+        .mockups-title {
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+          font-size: 0.85rem;
+          color: #495057;
+        }
       `}</style>
 
       {orders.map((order) => (
@@ -251,6 +333,21 @@ export default function OrdersList({ orders = [] }) {
           </div>
 
           <div className="order-details">
+            {/* הצגת סכום כולל אם קיים */}
+            {order.totals && order.totals.grandTotal !== undefined && (
+              <div className="order-detail-row" style={{ 
+                fontSize: '1.1rem', 
+                fontWeight: 'bold', 
+                color: '#28a745',
+                padding: '0.5rem',
+                background: '#f8f9fa',
+                borderRadius: '4px',
+                marginBottom: '0.75rem'
+              }}>
+                <span className="order-detail-label">סה"כ לתשלום:</span>
+                <span className="order-detail-value">₪{order.totals.grandTotal.toFixed(2)}</span>
+              </div>
+            )}
             <div className="order-detail-row">
               <span className="order-detail-label">תאריך יצירה:</span>
               <span className="order-detail-value">{formatDate(order.createdAt)}</span>
@@ -281,6 +378,26 @@ export default function OrdersList({ orders = [] }) {
                 )}
               </>
             )}
+            {/* פרטי משלוח */}
+            {order.shipping && (
+              <>
+                {order.shipping.label && (
+                  <div className="order-detail-row">
+                    <span className="order-detail-label">סוג משלוח:</span>
+                    <span className="order-detail-value">
+                      {order.shipping.label}
+                      {order.shipping.cost !== undefined && ` (₪${order.shipping.cost})`}
+                    </span>
+                  </div>
+                )}
+                {order.shipping.address?.address && (
+                  <div className="order-detail-row">
+                    <span className="order-detail-label">כתובת משלוח:</span>
+                    <span className="order-detail-value">{order.shipping.address.address}</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {order.items && order.items.length > 0 && (
@@ -288,10 +405,27 @@ export default function OrdersList({ orders = [] }) {
               <div className="order-items-title">פריטים בהזמנה:</div>
               <div className="order-items-list">
                 {order.items.map((item, idx) => {
-                  const totalQty = item.sizes 
-                    ? Object.values(item.sizes).reduce((sum, qty) => sum + (qty || 0), 0)
-                    : item.qty || 0;
-                  const totalPrice = item.unitPrice * totalQty;
+                  // חישוב כמות - תמיכה בפורמטים שונים
+                  let totalQty = 0;
+                  if (item.lineTotal !== undefined && item.unitAfter) {
+                    // אם יש lineTotal ו-unitAfter, נחשב מהם
+                    totalQty = item.qty || 0;
+                  } else if (item.variants?.sizeTotals) {
+                    // חישוב מ-variants.sizeTotals
+                    totalQty = Object.values(item.variants.sizeTotals).reduce((sum, qty) => sum + (qty || 0), 0);
+                  } else if (item.sizeSplit && Array.isArray(item.sizeSplit)) {
+                    // חישוב מ-sizeSplit
+                    totalQty = item.sizeSplit.reduce((sum, split) => sum + (split.qty || 0), 0);
+                  } else if (item.sizes) {
+                    // פורמט ישן - sizes object
+                    totalQty = Object.values(item.sizes).reduce((sum, qty) => sum + (qty || 0), 0);
+                  } else {
+                    totalQty = item.qty || 0;
+                  }
+                  
+                  // חישוב מחיר - תמיכה בפורמטים שונים
+                  const unitPrice = item.unitAfter || item.price || item.unitPrice || item.baseUnit || 0;
+                  const totalPrice = item.lineTotal || (unitPrice * totalQty);
                   
                   return (
                     <div key={idx} className="order-item">
@@ -377,10 +511,190 @@ export default function OrdersList({ orders = [] }) {
             </div>
           )}
 
-          {order.graphics && order.graphics.length > 0 && (
-            <div className="order-detail-row" style={{ marginTop: '0.75rem' }}>
-              <span className="order-detail-label">קבצים:</span>
-              <span className="order-detail-value">{order.graphics.length} קבצים מצורפים</span>
+          {/* הצגת לוגואים שהועלו */}
+          {order.logos && (
+            <div className="order-logos">
+              {/* לוגואים מקוריים שהועלו */}
+              {order.logos.uploads && Object.keys(order.logos.uploads).length > 0 && (
+                <div>
+                  <div className="order-logos-title">🎨 לוגואים שהועלו:</div>
+                  <div className="logos-grid">
+                    {Object.entries(order.logos.uploads).map(([key, logoUrl]) => {
+                      if (!logoUrl) return null;
+                      // טיפול במקרה שזה אובייקט ולא string
+                      const url = typeof logoUrl === 'string' ? logoUrl : logoUrl?.url || logoUrl?.fileUrl || '';
+                      if (!url) return null;
+                      
+                      return (
+                        <div key={key} className="logo-item">
+                          <img 
+                            src={url} 
+                            alt={key}
+                            className="logo-preview"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'block';
+                            }}
+                          />
+                          <div className="logo-label" style={{ display: 'none' }}>
+                            ❌ שגיאה בטעינה
+                          </div>
+                          <div className="logo-label">{key}</div>
+                          <a 
+                            href={url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="logo-link"
+                          >
+                            פתח קובץ
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* mockups - תצוגות מקדימות */}
+              {order.logos.mockups && order.logos.mockups.length > 0 && (
+                <div className="mockups-section">
+                  <div className="mockups-title">📸 Mockups:</div>
+                  <div className="logos-grid">
+                    {order.logos.mockups.map((mockupUrl, idx) => {
+                      if (!mockupUrl) return null;
+                      return (
+                        <div key={idx} className="logo-item">
+                          <img 
+                            src={mockupUrl} 
+                            alt={`Mockup ${idx + 1}`}
+                            className="logo-preview"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                          <div className="logo-label">Mockup {idx + 1}</div>
+                          <a 
+                            href={mockupUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="logo-link"
+                          >
+                            פתח תמונה
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* לוגואים לפי פריט */}
+              {order.logos.byItemFromCart && Object.keys(order.logos.byItemFromCart).length > 0 && (
+                <div style={{ marginTop: '1rem' }}>
+                  <div className="order-logos-title">🏷️ לוגואים לפי מוצר:</div>
+                  {Object.entries(order.logos.byItemFromCart).map(([itemId, positions]) => {
+                    const item = order.items?.find(i => i.productId === itemId);
+                    const itemName = item?.productName || itemId;
+                    
+                    return (
+                      <div key={itemId} style={{ marginBottom: '1rem' }}>
+                        <div style={{ 
+                          fontSize: '0.85rem', 
+                          fontWeight: 600, 
+                          color: '#495057',
+                          marginBottom: '0.5rem',
+                          padding: '0.5rem',
+                          background: '#e9ecef',
+                          borderRadius: '4px'
+                        }}>
+                          {itemName}
+                        </div>
+                        <div className="logos-grid">
+                          {positions.front && (
+                            <div className="logo-item">
+                              <img 
+                                src={positions.front} 
+                                alt="לוגו חזית"
+                                className="logo-preview"
+                              />
+                              <div className="logo-label">חזית</div>
+                              <a 
+                                href={positions.front} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="logo-link"
+                              >
+                                פתח קובץ
+                              </a>
+                            </div>
+                          )}
+                          {positions.back && (
+                            <div className="logo-item">
+                              <img 
+                                src={positions.back} 
+                                alt="לוגו גב"
+                                className="logo-preview"
+                              />
+                              <div className="logo-label">גב</div>
+                              <a 
+                                href={positions.back} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="logo-link"
+                              >
+                                פתח קובץ
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* תצוגה ישנה של graphics (fallback) */}
+          {!order.logos && order.graphics && order.graphics.length > 0 && (
+            <div className="order-logos">
+              <div className="order-logos-title">📎 קבצים מצורפים:</div>
+              <div className="logos-grid">
+                {order.graphics.map((graphic, idx) => (
+                  <div key={graphic.id || idx} className="logo-item">
+                    {graphic.fileUrl && graphic.fileUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? (
+                      <img 
+                        src={graphic.fileUrl} 
+                        alt={graphic.label}
+                        className="logo-preview"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="logo-preview" style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        fontSize: '2rem'
+                      }}>
+                        📄
+                      </div>
+                    )}
+                    <div className="logo-label">{graphic.label || 'קובץ ללא שם'}</div>
+                    {graphic.fileUrl && (
+                      <a 
+                        href={graphic.fileUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="logo-link"
+                      >
+                        פתח קובץ
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

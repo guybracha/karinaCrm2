@@ -119,6 +119,8 @@ function mapOrderDoc(orderDoc) {
     status: data.status || 'draft',
     items, // פריטי ההזמנה מנורמלים
     shipping: data.shipping, // פרטי משלוח
+    logos: data.logos, // לוגואים שהועלו עם ההזמנה (uploads, mockups, byItemFromCart)
+    totals: data.totals, // סכומים (grandTotal, merchandiseTotal, etc.)
     notes: data.notes || '',
     createdAt: normalizeDate(data.createdAt),
     updatedAt: normalizeDate(data.updatedAt),
