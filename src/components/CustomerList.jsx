@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createCustomer, fetchCustomers, subscribeToCustomers } from '../lib/customersApi';
+import { uploadCustomerGraphic } from '../lib/storage';
 import NewCustomerModal from './NewCustomerModal';
 
 const isTestEnv = process.env.NODE_ENV === 'test';
@@ -60,11 +61,38 @@ export default function CustomerList({ onSelect, selectedId }) {
     return unsubscribe;
   }, [onSelect]);
 
-  async function handleCreate(formData) {
+  async function handleCreate(formData, files = []) {
     setSubmitting(true);
     setError(null);
     try {
+      // יצירת הלקוח תחילה
       const customer = await createCustomer(formData);
+      
+      // העלאת קבצים אם נבחרו
+      if (customer?.id && files.length > 0) {
+        console.log(`Uploading ${files.length} files for customer ${customer.id}...`);
+        
+        const uploadPromises = files.map((file) =>
+          uploadCustomerGraphic(customer.firebaseUid || customer.id, file, {
+            customMetadata: {
+              label: file.name,
+              uploadedBy: 'customer-creation',
+            },
+          }).catch((err) => {
+            console.error(`Failed to upload ${file.name}:`, err);
+            return null;
+          })
+        );
+        
+        const results = await Promise.all(uploadPromises);
+        const successCount = results.filter(Boolean).length;
+        console.log(`Successfully uploaded ${successCount} out of ${files.length} files`);
+        
+        if (successCount < files.length) {
+          alert(`${successCount} מתוך ${files.length} קבצים הועלו בהצלחה`);
+        }
+      }
+      
       setModalOpen(false);
       
       // רענון מיידי של רשימת הלקוחות
